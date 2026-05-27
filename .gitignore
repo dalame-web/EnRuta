@@ -1,0 +1,33 @@
+# OS
+.DS_Store
+Thumbs.db
+desktop.ini
+
+# Editor / IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+.venv/
+venv/
+env/
+
+# Node (por si en el futuro se añade tooling)
+node_modules/
+package-lock.json
+.npm/
+
+# Logs y temp
+*.log
+tmp/
+temp/
+
+# Claude Code (preview local, no compartir)
+# .claude/ se mantiene tracked si tiene launch.json. Solo se ignora session local.
+.claude/session*
