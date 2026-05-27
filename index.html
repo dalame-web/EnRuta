@@ -1172,7 +1172,8 @@
   #cal-subnav{display:none}
   body.tab-calendario #cal-subnav,
   body.tab-estadisticas #cal-subnav,
-  body.tab-ajustes #cal-subnav{
+  body.tab-ajustes #cal-subnav,
+  body.tab-registro #cal-subnav{
     display:flex;position:fixed;left:0;right:0;
     top:38px;z-index:990;
     background:var(--panel);border-bottom:1px solid var(--border);
@@ -1181,7 +1182,8 @@
   @media (max-width:540px){
     body.tab-calendario #cal-subnav,
     body.tab-estadisticas #cal-subnav,
-    body.tab-ajustes #cal-subnav{top:36px}
+    body.tab-ajustes #cal-subnav,
+    body.tab-registro #cal-subnav{top:36px}
   }
   body.locked #cal-subnav{display:none!important}
   .cal-sub-btn{
@@ -1191,13 +1193,14 @@
   }
   .cal-sub-btn.active{border-bottom-color:#e8201c;color:#e8201c;font-weight:600}
 
-  /* Panes RV: padding-top para nav (38px) + sub-nav (36px) cuando aplica */
-  body.tab-registro{padding-top:38px}
-  body.tab-calendario,body.tab-estadisticas,body.tab-ajustes{padding-top:74px}
+  /* Panes RV: padding-top para nav (38px) + sub-nav (36px) */
+  body.tab-registro,body.tab-calendario,body.tab-estadisticas,body.tab-ajustes{padding-top:74px}
   @media (max-width:540px){
-    body.tab-registro{padding-top:36px}
-    body.tab-calendario,body.tab-estadisticas,body.tab-ajustes{padding-top:72px}
+    body.tab-registro,body.tab-calendario,body.tab-estadisticas,body.tab-ajustes{padding-top:72px}
   }
+
+  /* PMR warning icon en parada */
+  .pmr-warn{color:var(--warn);font-size:14px;vertical-align:middle;margin-left:4px}
 
   /* Layout RV: como en RV original (main {padding:14px;max-width:880px;margin:0 auto}) */
   #registro-pane.pane.active,
@@ -1968,6 +1971,7 @@
         <button class="home-btn" data-tab="dhltv">&#9888; DHLTV</button>
         <button class="home-btn" data-tab="adif" style="display:none">&#128225; ADIF</button>
         <button class="home-btn" data-tab="map" style="display:none">&#128507; Ver mapa</button>
+        <button class="home-btn" data-tab="calendario">&#128197; Calendario</button>
       </div>
     </div>
   </div>
@@ -5007,8 +5011,8 @@ renderLTVList();
 
 </script>
 <script src="data.js?v=202605272315"></script>
-<script src="registro.js?v=202605272315"></script>
-<script src="app.js?v=202605272315"></script>
+<script src="registro.js?v=202605271900"></script>
+<script src="app.js?v=202605271900"></script>
 <script src="gps-tracking.js"></script>
 </body>
 </html>

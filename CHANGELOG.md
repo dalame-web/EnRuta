@@ -8,11 +8,26 @@ y este proyecto sigue [SemVer](https://semver.org/lang/es/).
 
 ## [Unreleased]
 
+### Added
+- Botón `📅 Calendario` en la pantalla de Inicio junto a `Ver horario` y `DHLTV`.
+- Cross-feed completo HT → Registro: al cambiar de servicio en Horario se copian
+  número de servicio, origen, destino, horas teóricas y todas las paradas intermedias
+  con sus horas al turno activo en Registro.
+- Aviso condicional en cross-feed HT → Registro: solo muestra `confirm()` si el
+  servicio del turno aún no ha llegado a destino (`hDestino` > hora actual). Si el
+  servicio ya terminó, el cambio se aplica directamente sin aviso.
+- `window.REGISTRO.refreshEditor()` expuesto para re-renderizar el editor tras
+  aplicar datos externos.
+- Sub-nav `Calendario / Estadísticas / Ajustes` ahora también visible en la pestaña
+  `Registro` (con `Calendario` activo en el sub-nav).
+- Icono `⚠` junto al nombre de la estación en el editor de Registro cuando un PMR
+  tiene indicado que baja en esa parada.
+
 ### Changed
 - Refactor del nav: eliminado `#studio-nav`. Se reutiliza el nav nativo
   de HT añadiendo tabs `Registro` y `Calendario`.
 - Sub-nav `Estadísticas` / `Ajustes` aparece como barra debajo del nav
-  principal solo cuando la sección Calendario está activa.
+  principal solo cuando la sección Calendario o Registro está activa.
 - Botón `Registro`: si no hay turno abierto en el editor, se crea uno
   nuevo con la fecha del día actual y se carga automáticamente.
 
@@ -25,6 +40,8 @@ y este proyecto sigue [SemVer](https://semver.org/lang/es/).
   muestran el mismo estilo visual que la app RV original.
 - Doble nav corregido (ya no hay barra extra solapando la parte
   superior de HT).
+- Botones de Ajustes (`button.btn`) con el estilo correcto del original RV
+  (`border-radius:8px`, `padding:11px 16px`, colores primario/danger/ghost).
 
 ## [0.1.0] — 2026-05-27
 

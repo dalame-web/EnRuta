@@ -572,6 +572,7 @@
         'value="' + esc(cfg.nombre || '') + '">';
     } else {
       h += '<span class="st-name">' + esc(cfg.nombre || '—') + '</span>';
+      if (cfg.pmrBaja) h += '<span class="pmr-warn" title="PMR baja aquí">⚠</span>';
     }
     // Mini "+" inserta una parada NUEVA antes de la actual.
     if (cfg.parIdx != null) {
@@ -677,10 +678,14 @@
     // Paradas intermedias
     s.paradas.forEach(function (p, pi) {
       var nuevaSinDatos = !p.nombre && !p.hora;
+      var hasPmrInt = (s.pmr || []).some(function (pr) {
+        return pr.baja && p.nombre && pr.baja.toUpperCase() === p.nombre.toUpperCase();
+      });
       h += stationCard('intermediate', si, {
         nombre: p.nombre,
         parIdx: pi,
         editable: nuevaSinDatos,
+        pmrBaja: hasPmrInt,
         horaLlegada: p.tParada > 0 ? subMinutos(p.hora, p.tParada) : '',
         horaSalida: p.hora,
         editSalida: !p.hora,
@@ -693,8 +698,12 @@
       });
     });
     // Destino (con mini "+" para añadir parada al final)
+    var hasPmrDest = (s.pmr || []).some(function (pr) {
+      return pr.baja && s.destino && pr.baja.toUpperCase() === s.destino.toUpperCase();
+    });
     h += stationCard('destination', si, {
       nombre: s.destino || '(destino)',
+      pmrBaja: hasPmrDest,
       horaLlegada: s.hDestino,
       horaSalida: '',
       bindRetLleg: 'srv.' + si + '.rLlegDestino',
@@ -1857,6 +1866,9 @@
         if (editId == null) openDay(today());
         else setView('registro');
       }
+    },
+    refreshEditor: function () {
+      if (editId != null) { renderEditor(); save(K_TURNOS, turnos); }
     }
   };
 })();

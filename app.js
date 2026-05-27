@@ -28,7 +28,8 @@
         window.REGISTRO.switchTo(name);
       }
     }
-    if (name === 'calendario' || name === 'estadisticas' || name === 'ajustes') {
+    if (name === 'calendario' || name === 'estadisticas'
+        || name === 'ajustes' || name === 'registro') {
       syncSubnav(name);
     }
   }
@@ -103,24 +104,74 @@
     }
   });
 
-  // === Cross-feed: HT → Registro (con confirm) ===
+  // === Cross-feed: HT → Registro (completo) ===
+
+  // Devuelve true si el servicio ya ha llegado a destino (hDestino < hora actual).
+  function serviceComplete(svc) {
+    if (!svc || !svc.hDestino) return false;
+    var parts = svc.hDestino.split(':');
+    if (parts.length < 2) return false;
+    var dest = new Date();
+    dest.setHours(+parts[0], +parts[1], 0, 0);
+    return new Date() >= dest;
+  }
+
+  // Copia todos los datos del tramo HT al servicio del turno activo.
+  function applyMarchToSvc(svc, marchT) {
+    var tramo = (window.RV_HORARIOS || []).find(function (h) {
+      return h.servicio === String(marchT);
+    });
+    svc.servicioComercial = String(marchT);
+    if (tramo) {
+      svc.origen   = tramo.origen;
+      svc.destino  = tramo.destino;
+      svc.hSalida  = tramo.hSalida;
+      svc.hDestino = tramo.hDestino;
+      // Paradas intermedias: horas teóricas como referencia; rLleg/rSal vacíos para editar.
+      svc.paradas = tramo.paradas.map(function (p) {
+        return {
+          nombre: p.nombre,
+          hora: p.hora,
+          tParada: p.tParada,
+          rLleg: '',
+          rSal: '',
+          viajeros: '',
+          asistencias: '',
+          pmr: []
+        };
+      });
+    }
+  }
+
   if (window.HTIryo && typeof window.HTIryo.onMarchaChange === 'function') {
     window.HTIryo.onMarchaChange(function () {
       var march = window.HTIryo.getMarch();
-      if (!march || !window.REGISTRO) return;
+      if (!march || !march.t || !window.REGISTRO) return;
       var turno = window.REGISTRO.getActiveTurno();
       if (!turno) return;
       var svc = turno.servicios && turno.servicios[0];
       if (!svc) return;
-      if (svc.servicioComercial && svc.servicioComercial !== march.t) {
-        if (confirm('Hay un servicio activo en el turno (' + svc.servicioComercial +
-            '). ¿Reemplazar por ' + march.t + '?')) {
-          svc.servicioComercial = march.t;
-          window.dispatchEvent(new CustomEvent('iryo:marchaApplied', { detail: march }));
-        }
-      } else if (!svc.servicioComercial) {
-        svc.servicioComercial = march.t;
+      // Mismo servicio ya asignado: no hacer nada.
+      if (svc.servicioComercial === String(march.t)) return;
+
+      function doApply() {
+        applyMarchToSvc(svc, march.t);
         window.dispatchEvent(new CustomEvent('iryo:marchaApplied', { detail: march }));
+        if (window.REGISTRO.refreshEditor) window.REGISTRO.refreshEditor();
+      }
+
+      if (!svc.servicioComercial) {
+        // Sin servicio asignado → aplicar directo.
+        doApply();
+      } else if (serviceComplete(svc)) {
+        // Servicio ya terminado → aplicar sin aviso.
+        doApply();
+      } else {
+        // Servicio en curso → confirmar antes de reemplazar.
+        if (confirm('Hay un servicio activo (' + svc.servicioComercial +
+            '). ¿Reemplazar por ' + march.t + '?')) {
+          doApply();
+        }
       }
     });
   }
