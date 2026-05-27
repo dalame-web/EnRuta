@@ -1,0 +1,16 @@
+{
+  "name": "Iryo Studio",
+  "short_name": "Iryo Studio",
+  "start_url": "./index.html",
+  "display": "standalone",
+  "theme_color": "#e8201c",
+  "background_color": "#0d1117",
+  "lang": "es",
+  "orientation": "any",
+  "icons": [
+    { "src": "icon-192.png", "sizes": "192x192", "type": "image/png", "purpose": "any" },
+    { "src": "icon-512.png", "sizes": "512x512", "type": "image/png", "purpose": "any" },
+    { "src": "icon-192-maskable.png", "sizes": "192x192", "type": "image/png", "purpose": "maskable" },
+    { "src": "icon-512-maskable.png", "sizes": "512x512", "type": "image/png", "purpose": "maskable" }
+  ]
+}
