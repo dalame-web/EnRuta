@@ -1851,7 +1851,12 @@
       if (v === 'calendario') { renderCalendar(); setView('calendario'); }
       else if (v === 'estadisticas') { renderStats(); setView('estadisticas'); }
       else if (v === 'ajustes') { renderSettings(); setView('ajustes'); }
-      else if (v === 'registro') { setView('registro'); }
+      else if (v === 'registro') {
+        // Si no hay turno cargado en el editor, abrir el del día actual
+        // (crea uno en blanco si no existe — flujo openDay del calendario).
+        if (editId == null) openDay(today());
+        else setView('registro');
+      }
     }
   };
 })();
