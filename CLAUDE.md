@@ -108,24 +108,74 @@ El remote ya está conectado a `https://github.com/dalame-web/Iryo-Studio.git`.
 - **Service Worker network-first**: descarga fresco con conexión,
   cache fallback offline.
 
-## Cross-feed entre módulos
+## Arquitectura — nav unificado HT + panes RV
 
-Comunicación por **eventos custom globales** (no acoplamiento directo
-entre `horario` y `registro`):
+- **Sin nav propio de Studio.** Reutilizamos el nav nativo de HT
+  (`<div class="tabs">`) añadiendo dos botones `Registro` y
+  `Calendario`. HT's `switchTab(name)` solo toca `body.tab-X` y
+  `.pane.active` — no valida nombres, así que acepta los nuevos.
+- **Panes RV** (`#registro-pane`, `#calendario-pane`,
+  `#estadisticas-pane`, `#ajustes-pane`) son hijos directos de
+  `<body>`, hermanos de los panes HT. Se muestran solo con `.active`.
+- **MutationObserver en `app.js`** observa `body.className`. Cuando
+  HT cambia `body.tab-X`, dispara `onTabChange(name)` → llama a
+  `window.REGISTRO.switchTo(name)` y `syncSubnav(name)`.
+- **Capture listener** sobre `.tab[data-tab]` clicks limpia las
+  EXTRA_TABS (las 4 de RV) antes de que HT procese el click —
+  evita que body acumule múltiples `tab-X`.
+- **Sub-nav `#cal-subnav`** (Calendario / Estadísticas / Ajustes) es
+  visible solo cuando `body` tiene `tab-calendario`, `tab-registro`,
+  `tab-estadisticas` o `tab-ajustes`. CSS puro.
+- **Login PIN** (`body.locked`) oculta todo menos `#login-overlay`.
 
-```js
-// Disparar
-window.dispatchEvent(new CustomEvent('iryo:openService', {
-  detail: { num: '6010' }
-}));
+## APIs de cross-feed entre módulos
 
-// Escuchar (en app.js)
-window.addEventListener('iryo:openService', function(e) {
-  // cambiar a pestaña Horario + cargar servicio
-});
-```
+Comunicación vía **eventos custom globales** (sin acoplamiento
+directo). Estos son los contratos estables — no romper sin avisar.
 
-Eventos definidos en HANDOFF.md sección 5.
+### Eventos
+
+| Evento | Payload | Origen → destino |
+|---|---|---|
+| `iryo:openService` | `{ num }` | Registro/externo → app.js cambia a Horario + `HTIryo.showService(num)` |
+| `iryo:registroServiceChanged` | `{ num }` | `registro.js autofillServicio` → app.js sincroniza HT sin cambiar tab |
+| `iryo:marchaApplied` | march | app.js tras aplicar marcha HT al turno activo |
+| `iryo:htDelaysChanged` | (vacío) | HT `setMark` / `setProvisionalDelay` → app.js aplica retrasos al turno |
+| `iryo:setView` | `{ view }` | RV `setView` (no usado para nav — solo señal interna) |
+
+### `window.HTIryo` (definido en `index.html` IIFE)
+
+- `getMarch()` → `march` actual o `null` si "— Sin servicio —".
+- `showService(num, noNav)` — busca y carga servicio. `noNav=true`
+  para sincronizar sin cambiar de pestaña.
+- `getStopDelays()` → `{ rSalida, rLlegDestino, paradas: {nombre: {rLleg,rSal}} }`
+  con retrasos calculados de paradas comerciales.
+- `getMark(idx)` / `setMark(idx, hhmm, source)` — punches por parada.
+- `setProvisionalDelay(min)` — retraso global desde GPS.
+- `onMarchaChange(cb)` / `_dispatchMarchaChange()` — pub/sub interno.
+
+### `window.REGISTRO` (definido en `registro.js` IIFE)
+
+- `getActiveTurno()` → turno con `estado === 'en_curso'` o null.
+- `getOrCreateActiveTurno()` → idem, pero crea uno con fecha de hoy
+  si no existe (usado por cross-feed desde HT para no fallar).
+- `setView(v)` / `switchTo(v)` — `v ∈ {calendario, registro, estadisticas, ajustes}`.
+  `switchTo` renderiza y activa; `setView` solo activa.
+- `refreshEditor()` — re-renderiza si `editId != null`.
+
+## Estados críticos del modelo
+
+- **`march = null`** en HT cuando `curIdx = -1` (opción "—" del
+  selector). Todas las funciones HT que usan `march.X` requieren
+  guard. Punto de entrada: `tickKey()` devuelve `'_NONE_'`,
+  `renderHeader/Rows/updatePosition` salen temprano.
+- **`s.servicioComercial === ''`** = servicio sin asignar. Es la
+  señal para que `syncMarchaToRegistro` aplique la marcha activa
+  sin pedir confirmación.
+- **`s.hDestino < now`** = servicio terminado. Cross-feed HT→Registro
+  no pide confirm. `s.hDestino > now` + servicio asignado = confirm
+  obligatorio antes de reemplazar (lógica replicada en `app.js
+  onMarchaChange` y en `registro.js onChange` del select Servicio).
 
 ## Cuando el usuario reporte un bug
 
@@ -141,19 +191,32 @@ Eventos definidos en HANDOFF.md sección 5.
 ## Cuando el usuario pida un cambio
 
 Si es complejo o tiene varias interpretaciones posibles:
-- Usar `/grill-me` para hacer 1-4 preguntas concretas con
-  `AskUserQuestion` antes de tocar nada.
+- Usar `/grill-me` con 1-4 preguntas concretas vía `AskUserQuestion`
+  antes de tocar código.
 
 Si es claro:
 - Hacer el cambio mínimo.
-- Comprobar sintaxis.
-- Commit + push.
+- Sintaxis check.
+- Bump `?v=` en `index.html` si tocaste `app.js` o `registro.js`.
+- Actualizar `CHANGELOG.md` sección `[Unreleased]`.
+- Commit + push (formato Conventional Commits + Co-Authored-By).
 
 Si abarca más de 3 puntos / supone refactor amplio:
 - **Plan mode primero**: escribe plan en
-  `C:\Users\david\.claude\plans\<nombre>.md`, lista
-  decisiones cerradas, pasos, verificación. ExitPlanMode para
-  aprobar.
+  `C:\Users\david\.claude\plans\<nombre>.md`, lista decisiones
+  cerradas, pasos, verificación E2E. `ExitPlanMode` para aprobar.
+- El usuario espera ver el plan antes de ejecutar refactors.
+
+### Patrones específicos del usuario
+
+- **Reporta varios bugs en bloque numerado** ("Mejoras: 1. ... 2. ...").
+  Atacar todos en una ronda salvo que pida lo contrario.
+- **Diferencia "preview de Claude Code" vs "Chrome real"**: a veces
+  los fallos son del preview, no del código. Si reporta "RV no carga"
+  o "todo está roto", preguntar primero si lo probó en Chrome directo.
+- **Idioma**: SIEMPRE español de España. Nunca cambiar a inglés, ni
+  siquiera tras compactación de contexto. Memoria persistente en
+  `~/.claude/projects/.../memory/feedback_idioma_espanol.md`.
 
 ## Skills útiles
 
@@ -164,20 +227,20 @@ Si abarca más de 3 puntos / supone refactor amplio:
 | `/grill-me` | Diseñar algo nuevo o ambiguo. |
 | `mcp__Claude_Preview__*` | Servir local + screenshot. |
 
-## TODO al iniciar el siguiente chat (pendiente de hacer)
+## Cache busting tras cambiar JS
 
-1. Crear shell PWA: `index.html`, `manifest.webmanifest`, `sw.js`,
-   iconos.
-2. Extraer `data.js` desde HT (`<script id="data">`).
-3. Copiar `horario.html` y `gps-tracking.js` íntegros desde HT.
-4. Adaptar `rviryo.js` → `registro.js` (cambiar referencias de IDs
-   `cal-pane` → `calendario-pane`, etc.).
-5. Crear `app.js` con router de pestañas + cross-feed + importar
-   legacy en Ajustes.
-6. `.claude/launch.json` para `preview_start iryo-studio` (puerto
-   8780).
-7. Prueba E2E: 5 pestañas funcionan, cross-feed básico,
-   importar JSON de RV funciona.
+Cada edición a `app.js` o `registro.js` debe acompañarse de un bump
+del query string en los `<script>` de `index.html`:
+
+```html
+<script src="registro.js?v=YYYYMMDDHHMM"></script>
+<script src="app.js?v=YYYYMMDDHHMM"></script>
+```
+
+El Service Worker es network-first, así que sirve la versión fresca,
+pero el navegador puede cachear por URL. El bump fuerza la descarga.
+Mantener `CHANGELOG.md` (Keep a Changelog) en cada commit que toque
+comportamiento visible.
 
 ## Información del usuario
 
