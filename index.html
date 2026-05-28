@@ -4473,7 +4473,11 @@ window.addEventListener('unload', ebulaClearAllData);
       nowMin: nowMin,
       getTickKey: tickKey,
       refreshPositionBox: refreshPositionBox,
-      setProvisionalDelay: function(min){ provisionalDelay = (min == null ? null : min); updatePosition(); },
+      setProvisionalDelay: function(min){
+        provisionalDelay = (min == null ? null : min);
+        updatePosition();
+        try { window.dispatchEvent(new CustomEvent('iryo:htDelaysChanged')); } catch(e){}
+      },
       getMark: function(idx){ return (punches[tickKey()]||{})[idx]; },
       getMarkSource: function(idx){ return (markSource[tickKey()]||{})[idx]; },
       setMark: function(idx, hhmm, source){
@@ -4485,14 +4489,42 @@ window.addEventListener('unload', ebulaClearAllData);
         provisionalDelay = null;
         savePunches(); saveMarkSource();
         applyPunches(); updatePosition();
+        try { window.dispatchEvent(new CustomEvent('iryo:htDelaysChanged')); } catch(e){}
+      },
+      // Devuelve retrasos calculados de paradas comerciales del servicio activo.
+      // Estructura: { rSalida, rLlegDestino, paradas: { nombre: { rLleg, rSal } } }
+      getStopDelays: function(){
+        if(!march || !march.s) return null;
+        var trPunches = punches[tickKey()] || {};
+        function diffMin(real, teor){
+          if(!real || !teor) return null;
+          var r = real.split(':'), t = teor.split(':');
+          return (+r[0])*60 + (+r[1]) - ((+t[0])*60 + (+t[1]));
+        }
+        function fmt(d){ return d > 0 ? '+' + d : String(d); }
+        var stops = march.s, last = stops.length - 1;
+        var origenDelay = diffMin(trPunches[0], stops[0] && stops[0].h);
+        var destDelay = diffMin(trPunches[last], stops[last] && stops[last].h);
+        var paradas = {};
+        for(var i = 1; i < last; i++){
+          var s = stops[i];
+          if(s._l010cdi || !s.c) continue;
+          var d = diffMin(trPunches[i], s.h);
+          if(d != null) paradas[s.n] = { rLleg: fmt(d), rSal: fmt(d) };
+        }
+        return {
+          rSalida: origenDelay != null ? fmt(origenDelay) : '',
+          rLlegDestino: destDelay != null ? fmt(destDelay) : '',
+          paradas: paradas
+        };
       },
       onMarchaChange: function(cb){ if(typeof cb === 'function') marchaCbs.push(cb); },
       _dispatchMarchaChange: function(){ marchaCbs.forEach(function(cb){ try{ cb(); }catch(e){} }); }
     };
   })();
-  window.HTIryo.showService = function(num){
+  window.HTIryo.showService = function(num, noNav){
     var i = ALL_MARCHAS.findIndex(function(e){ return e.m.t === String(num); });
-    if(i>=0){ curIdx=i; $('train').value=i; renderHeader(); renderRows(); updatePosition(); savePrefs(); switchTab('schedule'); }
+    if(i>=0){ curIdx=i; $('train').value=i; renderHeader(); renderRows(); updatePosition(); savePrefs(); if(!noNav) switchTab('schedule'); }
   };
   // Detectar pestaña activa inicial y marcar body
   const initialActiveTab = document.querySelector('.tab.active');
@@ -5011,8 +5043,8 @@ renderLTVList();
 
 </script>
 <script src="data.js?v=202605272315"></script>
-<script src="registro.js?v=202605281200"></script>
-<script src="app.js?v=202605281200"></script>
+<script src="registro.js?v=202605282000"></script>
+<script src="app.js?v=202605282000"></script>
 <script src="gps-tracking.js"></script>
 </body>
 </html>

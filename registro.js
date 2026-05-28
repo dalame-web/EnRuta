@@ -903,6 +903,9 @@
       t[p[0]] = value;
     }
     autosave();
+    // Si cambió pmr.baja, refrescar la card del servicio para mostrar/quitar ⚠
+    var pmrM = bind.match(/^srv\.(\d+)\..*pmr\.\d+\.baja$/);
+    if (pmrM) refreshServicioCard(+pmrM[1]);
   }
 
   // ===== Dictado por voz (Web Speech API) =====
@@ -1004,6 +1007,8 @@
     });
     autosave();
     refreshServicioCard(si);
+    window.dispatchEvent(new CustomEvent('iryo:registroServiceChanged',
+      { detail: { num: hr.servicio } }));
   }
 
   // ===== Estadísticas =====

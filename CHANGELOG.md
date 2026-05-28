@@ -8,7 +8,20 @@ y este proyecto sigue [SemVer](https://semver.org/lang/es/).
 
 ## [Unreleased]
 
+### Added
+- Cross-feed Registro → Horario: al seleccionar un servicio en el editor de Registro
+  (select Servicio Comercial), el tren activo en Horario se sincroniza al mismo
+  servicio sin cambiar de pestaña. `HTIryo.showService(num, noNav)` admite ahora
+  un segundo argumento para omitir el `switchTab`.
+- Cross-feed retrasos Horario → Registro: cuando HT marca un paso por una parada
+  (vía GPS o manual) o aplica un retraso provisional, los retrasos calculados
+  (parada por parada) se aplican automáticamente al turno activo de Registro.
+  Nueva API: `HTIryo.getStopDelays()` + evento `iryo:htDelaysChanged`.
+
 ### Fixed
+- PMR ⚠: el icono no aparecía al seleccionar la parada de bajada porque
+  `applyBind` no re-renderizaba. Ahora, cuando cambia `pmr.baja`, se llama
+  a `refreshServicioCard(si)` para repintar la card con el ⚠ aplicado.
 - Variable CSS `--iryo` no estaba definida en Iryo Studio → botones `primary` se veían grises. Añadida `--iryo:#e8201c` en `:root` y `body.light`.
 - Cross-feed HT→Registro no actuaba si no había turno activo al cambiar de tab. Añadido `getOrCreateActiveTurno()` que crea turno si no existe.
 - Cross-feed HT→Registro no se disparaba al entrar en Registro con tren ya cargado. Añadida `syncMarchaToRegistro()` que aplica la marcha al entrar en el tab si el turno está vacío.

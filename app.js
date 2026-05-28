@@ -125,6 +125,43 @@
     }
   });
 
+  // === Cross-feed: Registro → Horario (cambio de servicio, sin cambiar tab) ===
+  window.addEventListener('iryo:registroServiceChanged', function (e) {
+    var num = e.detail && e.detail.num;
+    if (!num) return;
+    // Idempotencia: si HT ya está en este servicio, no hacer nada.
+    if (window.HTIryo && typeof window.HTIryo.getMarch === 'function') {
+      var march = window.HTIryo.getMarch();
+      if (march && march.t === String(num)) return;
+    }
+    if (window.HTIryo && typeof window.HTIryo.showService === 'function') {
+      window.HTIryo.showService(num, true); // noNav = sin cambiar de pestaña
+    }
+  });
+
+  // === Cross-feed: Retrasos HT → Registro ===
+  function applyDelaysToSvc(svc, delays) {
+    if (!svc || !delays) return;
+    if (delays.rSalida) svc.rSalida = delays.rSalida;
+    if (delays.rLlegDestino) svc.rLlegDestino = delays.rLlegDestino;
+    (svc.paradas || []).forEach(function (p) {
+      var d = delays.paradas && delays.paradas[p.nombre];
+      if (d) { p.rLleg = d.rLleg; p.rSal = d.rSal; }
+    });
+  }
+
+  window.addEventListener('iryo:htDelaysChanged', function () {
+    if (!window.HTIryo || !window.HTIryo.getStopDelays || !window.REGISTRO) return;
+    var delays = window.HTIryo.getStopDelays();
+    if (!delays) return;
+    var turno = window.REGISTRO.getActiveTurno && window.REGISTRO.getActiveTurno();
+    if (!turno) return;
+    var svc = turno.servicios && turno.servicios[0];
+    if (!svc) return;
+    applyDelaysToSvc(svc, delays);
+    if (window.REGISTRO.refreshEditor) window.REGISTRO.refreshEditor();
+  });
+
   // === Cross-feed: HT → Registro (completo) ===
 
   // Devuelve true si el servicio ya ha llegado a destino (hDestino < hora actual).
