@@ -1200,7 +1200,7 @@
   }
 
   /* PMR warning icon en parada */
-  .pmr-warn{color:var(--warn);font-size:14px;vertical-align:middle;margin-left:4px}
+  .pmr-warn{color:var(--warn);font-size:18px;font-weight:700;vertical-align:middle;margin-left:6px}
 
   /* Layout RV: como en RV original (main {padding:14px;max-width:880px;margin:0 auto}) */
   #registro-pane.pane.active,
@@ -3579,7 +3579,7 @@ window.addEventListener('unload', ebulaClearAllData);
   const COORDS = JSON.parse(document.getElementById('coords').textContent);
   const LINES = JSON.parse(document.getElementById('lines').textContent);
   const $ = id => document.getElementById(id);
-  let curIdx = 0, march = null, curGrp = '';
+  let curIdx = -1, march = null, curGrp = '';
   let punches = {};
   let markSource = {};  // markSource[tickKey()][idx] = 'manual' | 'gps' | 'est'
   let liveMode = true;
@@ -3641,6 +3641,10 @@ window.addEventListener('unload', ebulaClearAllData);
 
   function buildTrainSel(){
     const sel = $('train'); sel.innerHTML='';
+    const noneOpt = document.createElement('option');
+    noneOpt.value = -1; noneOpt.textContent = '—';
+    noneOpt.title = 'Sin servicio seleccionado';
+    sel.appendChild(noneOpt);
     ALL_MARCHAS.forEach((entry,i)=>{
       const m = entry.m;
       const opt=document.createElement('option');opt.value=i;
@@ -3648,13 +3652,20 @@ window.addEventListener('unload', ebulaClearAllData);
       opt.title = m.t+' · '+m.o+' → '+m.d;
       sel.appendChild(opt);
     });
-    if(curIdx>=ALL_MARCHAS.length)curIdx=0;
+    if(curIdx>=ALL_MARCHAS.length)curIdx=-1;
     sel.value=curIdx;
   }
 
   function renderHeader(){
     const entry = ALL_MARCHAS[curIdx];
-    if(!entry) return;
+    if(!entry){
+      march = null; curGrp = '';
+      $('route').textContent = '—';
+      $('tipo').textContent = '—';
+      $('dep').textContent = '—';
+      $('arr').textContent = '—';
+      return;
+    }
     march = entry.m;
     curGrp = entry.grp;
     $('route').textContent = march.t+'  '+march.o+'  →  '+march.d;
@@ -3752,6 +3763,7 @@ window.addEventListener('unload', ebulaClearAllData);
   function renderRows(){
     const tbody = $('rows');
     tbody.innerHTML='';
+    if(!march || !march.s){ applyPunches(); return; }
     const vmxSpans = computeSpans(march.s, 'v', true);  // VMáx: une a través de vacías cuando coinciden valores
     vmxOwnerMap = new Array(march.s.length).fill(-1);
     let curVmxOwner = -1;
@@ -3809,7 +3821,7 @@ window.addEventListener('unload', ebulaClearAllData);
   // Mejora 1: retraso provisional (minutos) confirmado por GPS sin marca aún.
   // Lo fija gps-tracking.js vía HTIryo.setProvisionalDelay; lo lee updatePosition.
   let provisionalDelay = null;
-  function tickKey(){return curGrp+'|'+march.t+'|'+march.o+'→'+march.d}
+  function tickKey(){ return march ? (curGrp+'|'+march.t+'|'+march.o+'→'+march.d) : '_NONE_'; }
 
   function applyPunches(){
     const key = tickKey();
@@ -3844,6 +3856,7 @@ window.addEventListener('unload', ebulaClearAllData);
   }
 
   function updatePosition(){
+    if(!march || !march.s) return;
     const t = nowMin();
     const stops = march.s;
     const key = tickKey();
@@ -5043,8 +5056,8 @@ renderLTVList();
 
 </script>
 <script src="data.js?v=202605272315"></script>
-<script src="registro.js?v=202605282000"></script>
-<script src="app.js?v=202605282000"></script>
+<script src="registro.js?v=202605282300"></script>
+<script src="app.js?v=202605282300"></script>
 <script src="gps-tracking.js"></script>
 </body>
 </html>

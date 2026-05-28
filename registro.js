@@ -95,6 +95,15 @@
     if (min == null || !isFinite(min)) return '';
     return (min >= 0 ? '+' : '') + min + 'm';
   }
+  // True si el servicio aún no ha llegado a destino (hDestino > hora actual).
+  function servicioEnCurso(s) {
+    if (!s || !s.hDestino) return false;
+    var parts = String(s.hDestino).split(':');
+    if (parts.length < 2) return false;
+    var dest = new Date();
+    dest.setHours(+parts[0], +parts[1], 0, 0);
+    return new Date() < dest;
+  }
   // Resta minutos a una hora 'HH:MM' → 'HH:MM' (con wrap 24h).
   function subMinutos(hora, min) {
     if (!/^\d{1,2}:\d{2}$/.test(hora || '') || !isFinite(min)) return '';
@@ -573,8 +582,9 @@
         'data-bind="srv.' + si + '.par.' + cfg.parIdx + '.nombre" ' +
         'value="' + esc(cfg.nombre || '') + '">';
     } else {
-      h += '<span class="st-name">' + esc(cfg.nombre || '—') + '</span>';
-      if (cfg.pmrBaja) h += '<span class="pmr-warn" title="PMR baja aquí">⚠</span>';
+      h += '<span class="st-name">' + esc(cfg.nombre || '—');
+      if (cfg.pmrBaja) h += ' <span class="pmr-warn" title="PMR baja aquí">⚠</span>';
+      h += '</span>';
     }
     // Mini "+" inserta una parada NUEVA antes de la actual.
     if (cfg.parIdx != null) {
@@ -1508,15 +1518,28 @@
     if (el.classList && el.classList.contains('srv-sel')) {
       var si = +el.getAttribute('data-svc');
       var opt = el.selectedOptions && el.selectedOptions[0];
+      var t = getTurno(editId);
+      var s = t ? t.servicios[si] : null;
+      // Aviso si hay servicio activo y aún en trayecto (evita cambios involuntarios).
+      if (s && s.servicioComercial && servicioEnCurso(s)) {
+        var nuevoNum = '';
+        if (opt && opt.getAttribute('data-idx') != null) {
+          var hr = horarios[+opt.getAttribute('data-idx')];
+          nuevoNum = hr ? hr.servicio : '';
+        }
+        if (nuevoNum !== s.servicioComercial) {
+          if (!confirm('Hay un servicio activo (' + s.servicioComercial +
+              '). ¿Reemplazar por ' + (nuevoNum || '(ninguno)') + '?')) {
+            refreshServicioCard(si);
+            return;
+          }
+        }
+      }
       if (opt && opt.getAttribute('data-idx') != null) {
         autofillServicio(si, +opt.getAttribute('data-idx'));
-      } else {
-        var t = getTurno(editId);
-        if (t) {
-          var s = t.servicios[si];
-          s.servicioComercial = ''; s.origen = ''; s.destino = '';
-          autosave();
-        }
+      } else if (t && s) {
+        s.servicioComercial = ''; s.origen = ''; s.destino = '';
+        autosave();
         refreshServicioCard(si);
       }
       return;

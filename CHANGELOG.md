@@ -9,6 +9,18 @@ y este proyecto sigue [SemVer](https://semver.org/lang/es/).
 ## [Unreleased]
 
 ### Added
+- Opción `—` al inicio del selector de tren en Horario para arranque limpio.
+  Por defecto la app abre sin servicio seleccionado: no inicia tracking GPS
+  ni aplica cross-feed a Registro (turno con plantilla vacía).
+- Confirm al cambiar el `<select>` Servicio Comercial en el editor de Registro
+  cuando el servicio actual está en trayecto (`hDestino` futuro). Evita
+  cambios involuntarios. Si se cancela, el select vuelve al servicio anterior.
+
+### Fixed
+- Icono ⚠ PMR ahora aparece **junto al nombre de la parada** (no junto a
+  los botones +/🗑) y es más grande (font-size 18px, peso 700).
+
+### Added
 - Cross-feed Registro → Horario: al seleccionar un servicio en el editor de Registro
   (select Servicio Comercial), el tren activo en Horario se sincroniza al mismo
   servicio sin cambiar de pestaña. `HTIryo.showService(num, noNav)` admite ahora
