@@ -17,6 +17,23 @@
     });
   }
 
+  // Aplica la marcha activa de HT al turno si éste no tiene servicio asignado.
+  // Se llama al entrar en el tab Registro (sync pasivo, sin pedir confirmación).
+  function syncMarchaToRegistro() {
+    if (!window.HTIryo || !window.REGISTRO) return;
+    var march = window.HTIryo.getMarch();
+    if (!march || !march.t) return;
+    var turno = window.REGISTRO.getOrCreateActiveTurno
+      ? window.REGISTRO.getOrCreateActiveTurno()
+      : window.REGISTRO.getActiveTurno();
+    if (!turno) return;
+    var svc = turno.servicios && turno.servicios[0];
+    if (!svc || svc.servicioComercial) return; // solo si el turno está vacío
+    applyMarchToSvc(svc, march.t);
+    window.dispatchEvent(new CustomEvent('iryo:marchaApplied', { detail: march }));
+    if (window.REGISTRO.refreshEditor) window.REGISTRO.refreshEditor();
+  }
+
   function onTabChange(name) {
     if (name === lastTab) return;
     lastTab = name;
@@ -31,6 +48,10 @@
     if (name === 'calendario' || name === 'estadisticas'
         || name === 'ajustes' || name === 'registro') {
       syncSubnav(name);
+    }
+    // Al entrar en Registro, sincronizar marcha activa si el turno está vacío.
+    if (name === 'registro') {
+      window.setTimeout(syncMarchaToRegistro, 100);
     }
   }
 
@@ -147,7 +168,9 @@
     window.HTIryo.onMarchaChange(function () {
       var march = window.HTIryo.getMarch();
       if (!march || !march.t || !window.REGISTRO) return;
-      var turno = window.REGISTRO.getActiveTurno();
+      var turno = window.REGISTRO.getOrCreateActiveTurno
+        ? window.REGISTRO.getOrCreateActiveTurno()
+        : window.REGISTRO.getActiveTurno();
       if (!turno) return;
       var svc = turno.servicios && turno.servicios[0];
       if (!svc) return;

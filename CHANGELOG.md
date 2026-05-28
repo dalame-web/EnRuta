@@ -8,6 +8,12 @@ y este proyecto sigue [SemVer](https://semver.org/lang/es/).
 
 ## [Unreleased]
 
+### Fixed
+- Variable CSS `--iryo` no estaba definida en Iryo Studio → botones `primary` se veían grises. Añadida `--iryo:#e8201c` en `:root` y `body.light`.
+- Cross-feed HT→Registro no actuaba si no había turno activo al cambiar de tab. Añadido `getOrCreateActiveTurno()` que crea turno si no existe.
+- Cross-feed HT→Registro no se disparaba al entrar en Registro con tren ya cargado. Añadida `syncMarchaToRegistro()` que aplica la marcha al entrar en el tab si el turno está vacío.
+- Comparación de nombres de paradas en iconos PMR mejorada con `normName()` para ignorar diferencias de guiones y espacios.
+
 ### Added
 - Botón `📅 Calendario` en la pantalla de Inicio junto a `Ver horario` y `DHLTV`.
 - Cross-feed completo HT → Registro: al cambiar de servicio en Horario se copian

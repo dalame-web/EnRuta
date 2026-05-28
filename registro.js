@@ -7,6 +7,8 @@
 (function () {
   'use strict';
 
+  function normName(n) { return (n || '').toUpperCase().replace(/[-\s]+/g, ' ').trim(); }
+
   // ===== Constantes =====
   var K_TURNOS = 'rviryo_turnos_v1';
   var K_SETTINGS = 'rviryo_settings_v1';
@@ -679,7 +681,7 @@
     s.paradas.forEach(function (p, pi) {
       var nuevaSinDatos = !p.nombre && !p.hora;
       var hasPmrInt = (s.pmr || []).some(function (pr) {
-        return pr.baja && p.nombre && pr.baja.toUpperCase() === p.nombre.toUpperCase();
+        return pr.baja && p.nombre && normName(pr.baja) === normName(p.nombre);
       });
       h += stationCard('intermediate', si, {
         nombre: p.nombre,
@@ -699,7 +701,7 @@
     });
     // Destino (con mini "+" para añadir parada al final)
     var hasPmrDest = (s.pmr || []).some(function (pr) {
-      return pr.baja && s.destino && pr.baja.toUpperCase() === s.destino.toUpperCase();
+      return pr.baja && s.destino && normName(pr.baja) === normName(s.destino);
     });
     h += stationCard('destination', si, {
       nombre: s.destino || '(destino)',
@@ -1853,6 +1855,15 @@
   window.REGISTRO = {
     getActiveTurno: function () {
       return turnos.find(function (t) { return t.estado === 'en_curso'; }) || null;
+    },
+    getOrCreateActiveTurno: function () {
+      var t = turnos.find(function (t) { return t.estado === 'en_curso'; });
+      if (!t) {
+        t = blankTurno(today());
+        turnos.push(t);
+        save(K_TURNOS, turnos);
+      }
+      return t;
     },
     setView: setView,
     // switchTo: render + setView (para que app.js active la vista correcta con datos)
