@@ -9,6 +9,31 @@ y este proyecto sigue [SemVer](https://semver.org/lang/es/).
 ## [Unreleased]
 
 ### Added
+- Icono PWA `icon.svg` con branding "IS" (rojo iryo, fondo redondeado).
+  Referenciado primero en `manifest.webmanifest` y como favicon SVG en
+  `index.html`. Los PNG quedan como fallback.
+
+### Changed
+- Pantalla Inicio: título "HT Iryo" → "Iryo Studio".
+- Estadísticas: grid responsive — 2×2 en móvil, 4×1 en tablet/desktop
+  (antes `auto-fit minmax(150px)` caía a una sola columna en pantallas
+  estrechas).
+- Botón `Reset punteo` en Horario: alineado verticalmente con el
+  selector de tren y el botón GPS (`align-self:center`).
+
+### Fixed
+- Calendario: re-render adicional en el siguiente `requestAnimationFrame`
+  al activar el tab. Soluciona el bug intermitente donde la primera
+  vista del calendario (tras desbloquear PIN) salía mal calculada
+  porque el pane estaba `display:none` cuando se midió el grid.
+- Registro: al entrar al tab sin tocar nada, el turno blank ya NO se
+  persiste en localStorage. Solo se guarda cuando el usuario añade
+  algún dato (autosave). `discardEmptyEdit` lo limpia al salir si
+  sigue vacío.
+- Registro: scroll va arriba tras abrir el editor (antes podía quedar
+  al final tapando la cabecera del turno).
+
+### Added
 - Opción `—` al inicio del selector de tren en Horario para arranque limpio.
   Por defecto la app abre sin servicio seleccionado: no inicia tracking GPS
   ni aplica cross-feed a Registro (turno con plantilla vacía).

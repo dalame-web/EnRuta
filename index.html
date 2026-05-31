@@ -9,6 +9,7 @@
 <meta name="application-name" content="Iryo Studio">
 <meta name="theme-color" content="#e8201c">
 <link rel="manifest" href="./manifest.webmanifest">
+<link rel="icon" type="image/svg+xml" href="./icon.svg">
 <link rel="icon" type="image/png" sizes="192x192" href="./icon-192.png">
 <link rel="apple-touch-icon" href="./icon-192.png">
 <title>Iryo Studio</title>
@@ -206,6 +207,7 @@
   button.primary{background:var(--accent);color:#0d1117;border-color:var(--accent);font-weight:600}
   button.warn{background:#3a2a18;border-color:var(--warn);color:var(--warn)}
   button.bad{background:#3a1d1d;border-color:var(--bad);color:var(--bad)}
+  #reset-punches{align-self:center;min-height:32px;padding:6px 10px}
   button.gps-btn{display:inline-flex;align-items:center;gap:5px;padding:4px 10px;
     background:rgba(63,185,80,.14);border:1px solid var(--ok);color:var(--ok);
     border-radius:5px;font-size:12px;font-weight:600;letter-spacing:.3px;white-space:nowrap}
@@ -1130,8 +1132,11 @@
 
   /* ---- Estadísticas ---- */
   .stat-grid{
-    display:grid; grid-template-columns:repeat(auto-fit,minmax(150px,1fr));
+    display:grid; grid-template-columns:repeat(2, 1fr);
     gap:12px;
+  }
+  @media (min-width:600px){
+    .stat-grid{ grid-template-columns:repeat(4, 1fr); }
   }
   .stat-box{
     background:var(--panel); border:1px solid var(--border);
@@ -1963,7 +1968,7 @@
       <text x="300" y="650" text-anchor="middle" font-family="Poppins,sans-serif" font-weight="800" font-size="68" fill="#fff" letter-spacing="-3">iryo</text>
     </svg>
     <div class="home-overlay">
-      <div class="home-title">HT Iryo</div>
+      <div class="home-title">Iryo Studio</div>
       <div class="home-subtitle">Web no oficial</div>
       <div class="home-author">Autor: David Mu&ntilde;oz Primo</div>
       <div class="home-actions">
@@ -5056,8 +5061,8 @@ renderLTVList();
 
 </script>
 <script src="data.js?v=202605272315"></script>
-<script src="registro.js?v=202605282300"></script>
-<script src="app.js?v=202605282300"></script>
+<script src="registro.js?v=202605290100"></script>
+<script src="app.js?v=202605290100"></script>
 <script src="gps-tracking.js"></script>
 </body>
 </html>

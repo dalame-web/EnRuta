@@ -438,7 +438,9 @@
     if (tod.length === 0) {
       var t = blankTurno(ds);
       turnos.push(t);
-      save(K_TURNOS, turnos);
+      // NO save() aquí — el turno solo se persiste cuando el usuario
+      // añade algún dato (autosave lo guardará). Si sale sin tocar,
+      // discardEmptyEdit lo descarta de turnos[].
       openEditor(t.id);
     } else if (tod.length === 1) {
       openEditor(tod[0].id);
@@ -471,6 +473,8 @@
     expandedSvc = 0;
     renderEditor();
     setView('registro');
+    // Scroll arriba tras el paint para que se vea la cabecera del turno.
+    requestAnimationFrame(function () { window.scrollTo(0, 0); });
   }
 
   // Clave única de un tramo del Libro de Horarios.
@@ -1896,7 +1900,14 @@
     setView: setView,
     // switchTo: render + setView (para que app.js active la vista correcta con datos)
     switchTo: function (v) {
-      if (v === 'calendario') { renderCalendar(); setView('calendario'); }
+      if (v === 'calendario') {
+        renderCalendar();
+        setView('calendario');
+        // Re-render tras el paint para fix de layout intermitente
+        // (la primera render puede ocurrir con el pane oculto si venimos
+        // de body.locked, lo que cachea dimensiones grid mal calculadas).
+        requestAnimationFrame(renderCalendar);
+      }
       else if (v === 'estadisticas') { renderStats(); setView('estadisticas'); }
       else if (v === 'ajustes') { renderSettings(); setView('ajustes'); }
       else if (v === 'registro') {
