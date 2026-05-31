@@ -335,6 +335,10 @@
       if (info && info.role === 'second' && info.sameRow) continue;
 
       var tod = turnosOfDay(ds);
+      // Defensa: ignorar turnos completamente vacíos (puede quedar uno en
+      // memoria si discardEmptyEdit no se ejecutó). Sin esto, la celda
+      // sale con `has-turno` y badge "En curso", lo que rompe el grid.
+      tod = tod.filter(function (t) { return !isEmptyTurno(t); });
       var t0 = tod[0];
       var doble = info && info.role === 'first' && info.sameRow;
       var firstOfDormida = info && info.role === 'first';
@@ -473,8 +477,15 @@
     expandedSvc = 0;
     renderEditor();
     setView('registro');
-    // Scroll arriba tras el paint para que se vea la cabecera del turno.
-    requestAnimationFrame(function () { window.scrollTo(0, 0); });
+    // Scroll arriba con varias estrategias: el navegador puede restaurar
+    // la posición previa del pane tras cambiar `.active`.
+    window.scrollTo(0, 0);
+    document.documentElement.scrollTop = 0;
+    document.body.scrollTop = 0;
+    requestAnimationFrame(function () {
+      window.scrollTo(0, 0);
+      requestAnimationFrame(function () { window.scrollTo(0, 0); });
+    });
   }
 
   // Clave única de un tramo del Libro de Horarios.
@@ -1919,6 +1930,7 @@
     },
     refreshEditor: function () {
       if (editId != null) { renderEditor(); save(K_TURNOS, turnos); }
-    }
+    },
+    discardEmptyEdit: discardEmptyEdit
   };
 })();

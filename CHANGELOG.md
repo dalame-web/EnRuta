@@ -8,6 +8,22 @@ y este proyecto sigue [SemVer](https://semver.org/lang/es/).
 
 ## [Unreleased]
 
+### Fixed
+- Turno blank ya no ensucia el calendario: `discardEmptyEdit` se llama
+  automáticamente al salir del tab Registro (antes solo se ejecutaba
+  desde el botón "volver" del editor RV original, que no existe en
+  Iryo Studio). Expuesto en `window.REGISTRO.discardEmptyEdit`.
+- Defensa adicional en `renderCalendar`: filtra `turnosOfDay()` para
+  ignorar turnos completamente vacíos antes de aplicar la clase
+  `has-turno` o renderizar el badge "En curso". Eso evita que un
+  turno blank residual estire la altura de la celda (vía
+  `margin-top:auto` del `.estado`) y rompa el layout del grid.
+- Scroll arriba al entrar al editor: estrategia multi-paso
+  (`window.scrollTo` + `documentElement.scrollTop` + 2 niveles de
+  `requestAnimationFrame`) para garantizar el scroll incluso si el
+  browser restaura la posición previa del pane tras el cambio de
+  `.active`. También `scrollTo(0,0)` en `onTabChange('registro')`.
+
 ### Added
 - Icono PWA `icon.svg` con branding "IS" (rojo iryo, fondo redondeado).
   Referenciado primero en `manifest.webmanifest` y como favicon SVG en

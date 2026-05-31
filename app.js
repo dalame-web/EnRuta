@@ -36,8 +36,16 @@
 
   function onTabChange(name) {
     if (name === lastTab) return;
+    var prev = lastTab;
     lastTab = name;
     localStorage.setItem('iryostudio_active_tab', name);
+
+    // Al salir de Registro: descartar el turno blank si quedó vacío.
+    // Evita que el calendario muestre turnos ghost.
+    if (prev === 'registro' && name !== 'registro'
+        && window.REGISTRO && typeof window.REGISTRO.discardEmptyEdit === 'function') {
+      window.REGISTRO.discardEmptyEdit();
+    }
 
     if (name === 'calendario' || name === 'registro'
         || name === 'estadisticas' || name === 'ajustes') {
@@ -49,8 +57,9 @@
         || name === 'ajustes' || name === 'registro') {
       syncSubnav(name);
     }
-    // Al entrar en Registro, sincronizar marcha activa si el turno está vacío.
+    // Al entrar en Registro: scroll arriba + sincronizar marcha activa.
     if (name === 'registro') {
+      window.scrollTo(0, 0);
       window.setTimeout(syncMarchaToRegistro, 100);
     }
   }
