@@ -8,6 +8,27 @@ y este proyecto sigue [SemVer](https://semver.org/lang/es/).
 
 ## [Unreleased]
 
+### Added
+- HT detecta el tramo activo de transversales (servicios con Atocha
+  intermedia, ej. 6014 Barcelona→Sevilla). Cuando lo detecta como
+  tramo 2 (Atocha→destino), oculta las paradas previas a Atocha y
+  muestra la cabecera con origen=Atocha. **Detección por prioridad:**
+  1. Punches (GPS o manual) post-Atocha → tramo 2 confirmado.
+  2. Punches pre-Atocha → tramo 1 (vista completa).
+  3. Sin punches: por hora actual. Si `nowMin >= salida desde Atocha − 60min`
+     → tramo 2 (tolerancia amplia, el maquinista puede llegar hasta 1h antes).
+- `HTIryo.getActiveLegInfo()` devuelve `{origen, destino, hSalida, hDestino}`
+  del tramo activo, o `null` si recorrido completo. Usado por el cross-feed.
+
+### Changed
+- Cross-feed HT→Registro (`applyMarchToSvc`): en lugar de aplicar el
+  primer tramo a ciegas con `.find()`, ahora respeta orden de prioridad:
+  1. Si Registro ya tiene `svc.origen` → matchear ese tramo.
+  2. Si HT detecta tramo activo (`getActiveLegInfo`) → usar ese.
+  3. Si nada apunta a un tramo concreto en un transversal split, no
+     inventa nada: deja `origen/destino/paradas` vacíos y el maquinista
+     elige en el `<select>` del editor (que ya lista ambos por separado).
+
 ### Fixed
 - Calendario con celdas verticales (33×92px) en vez de horizontales:
   el `#calendario-pane` se colapsaba a ~290px en vez de respetar

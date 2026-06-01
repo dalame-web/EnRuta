@@ -3585,6 +3585,35 @@ window.addEventListener('unload', ebulaClearAllData);
   const LINES = JSON.parse(document.getElementById('lines').textContent);
   const $ = id => document.getElementById(id);
   let curIdx = -1, march = null, curGrp = '';
+  // Tramo activo del transversal (servicio que pasa por Atocha como parada
+  // intermedia). 0 = recorrido completo. Si vale el índice de Atocha en
+  // march.s → mostrar solo desde Atocha hasta el destino (tramo 2).
+  let activeLegStart = 0;
+  const ATOCHA_NAME = 'MADRID-P.ATOCHA-ALMUDENA GRANDES';
+  function detectActiveLeg(){
+    activeLegStart = 0;
+    if(!march || !march.s) return;
+    let atochaIdx = -1;
+    for(let i = 1; i < march.s.length - 1; i++){
+      if(march.s[i].n === ATOCHA_NAME && march.s[i].c){ atochaIdx = i; break; }
+    }
+    if(atochaIdx < 0) return;  // no es transversal con Atocha intermedia
+    // GPS / punches manda: si hay marca post-Atocha → tramo 2 confirmado.
+    // Si hay marca pre-Atocha → tramo 1 (alguien marca desde origen real).
+    const k = tickKey();
+    const trPunches = punches[k] || {};
+    const punchedIdx = Object.keys(trPunches).map(Number);
+    const hasPost = punchedIdx.some(function(i){ return i >= atochaIdx; });
+    const hasPre  = punchedIdx.some(function(i){ return i <  atochaIdx; });
+    if(hasPost){ activeLegStart = atochaIdx; return; }
+    if(hasPre) return;
+    // Sin punches → por hora. Tolerancia -60min (preparación pre-servicio).
+    const atochaH = march.s[atochaIdx].h;
+    if(!atochaH) return;
+    const [hh, mm] = atochaH.split(':').map(Number);
+    const atochaMin = hh*60 + mm;
+    if(nowMin() >= atochaMin - 60) activeLegStart = atochaIdx;
+  }
   let punches = {};
   let markSource = {};  // markSource[tickKey()][idx] = 'manual' | 'gps' | 'est'
   let liveMode = true;
@@ -3664,7 +3693,7 @@ window.addEventListener('unload', ebulaClearAllData);
   function renderHeader(){
     const entry = ALL_MARCHAS[curIdx];
     if(!entry){
-      march = null; curGrp = '';
+      march = null; curGrp = ''; activeLegStart = 0;
       $('route').textContent = '—';
       $('tipo').textContent = '—';
       $('dep').textContent = '—';
@@ -3673,10 +3702,17 @@ window.addEventListener('unload', ebulaClearAllData);
     }
     march = entry.m;
     curGrp = entry.grp;
-    $('route').textContent = march.t+'  '+march.o+'  →  '+march.d;
+    detectActiveLeg();
+    const startIdx = activeLegStart;
+    const tail = march.s.slice(startIdx);
+    const orig = march.s[startIdx];
+    const route = startIdx > 0
+      ? march.t + '  ' + orig.n + '  →  ' + march.d
+      : march.t + '  ' + march.o + '  →  ' + march.d;
+    $('route').textContent = route;
     $('tipo').textContent = march.tp || '—';
-    const first = march.s.find(s=>s.h);
-    const last = [...march.s].reverse().find(s=>s.h);
+    const first = tail.find(s=>s.h);
+    const last = [...tail].reverse().find(s=>s.h);
     $('dep').textContent = first?first.h:'—';
     $('arr').textContent = last?last.h:'—';
   }
@@ -3778,6 +3814,7 @@ window.addEventListener('unload', ebulaClearAllData);
     }
     const lastIdx = march.s.length - 1;
     march.s.forEach((s, idx)=>{
+      if(idx < activeLegStart) return;  // ocultar paradas previas al tramo activo
       const tr = document.createElement('tr');
       tr.dataset.idx = idx;
       const hasName = !!s.n;
@@ -3856,7 +3893,13 @@ window.addEventListener('unload', ebulaClearAllData);
       clock.textContent = fmtTimeS(d);
       clock.style.color = 'var(--accent)';
     }
-    if(march) updatePosition();
+    if(march){
+      // Re-detectar tramo activo (cambio por hora o por nuevos punches).
+      const prevLeg = activeLegStart;
+      detectActiveLeg();
+      if(prevLeg !== activeLegStart){ renderHeader(); renderRows(); }
+      updatePosition();
+    }
     if(mapInitialized) updateMapTrains();
   }
 
@@ -4537,7 +4580,20 @@ window.addEventListener('unload', ebulaClearAllData);
         };
       },
       onMarchaChange: function(cb){ if(typeof cb === 'function') marchaCbs.push(cb); },
-      _dispatchMarchaChange: function(){ marchaCbs.forEach(function(cb){ try{ cb(); }catch(e){} }); }
+      _dispatchMarchaChange: function(){ marchaCbs.forEach(function(cb){ try{ cb(); }catch(e){} }); },
+      // Tramo activo del march (servicio transversal con Atocha intermedia).
+      // Devuelve null si no hay march o si activeLegStart=0 (recorrido completo).
+      // Si hay tramo activo: { origen, destino, hSalida, hDestino } del tramo.
+      getActiveLegInfo: function(){
+        if(!march || !march.s || march.s.length === 0) return null;
+        if(activeLegStart === 0) return null;
+        var s0 = march.s[activeLegStart];
+        var sN = march.s[march.s.length - 1];
+        return {
+          origen: s0.n, destino: sN.n,
+          hSalida: s0.h || '', hDestino: sN.h || ''
+        };
+      }
     };
   })();
   window.HTIryo.showService = function(num, noNav){
@@ -5062,7 +5118,7 @@ renderLTVList();
 </script>
 <script src="data.js?v=202605272315"></script>
 <script src="registro.js?v=202605290500"></script>
-<script src="app.js?v=202605290500"></script>
+<script src="app.js?v=202605291000"></script>
 <script src="gps-tracking.js"></script>
 </body>
 </html>

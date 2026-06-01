@@ -186,31 +186,47 @@
     return new Date() >= dest;
   }
 
-  // Copia todos los datos del tramo HT al servicio del turno activo.
+  // Copia los datos del tramo HT al servicio del turno activo.
+  // Si el servicio es transversal (split en Atocha → 2 tramos en RV_HORARIOS):
+  //   1. Si el Registro ya tiene origen elegido por el maquinista → matchear ese tramo.
+  //   2. Si HT tiene un tramo detectado (activeLegStart > 0) → usar ese.
+  //   3. Si no sabemos → solo asignar servicioComercial y dejar que el maquinista
+  //      elija manualmente en el <select> del editor (no inventar tramo).
   function applyMarchToSvc(svc, marchT) {
-    var tramo = (window.RV_HORARIOS || []).find(function (h) {
+    var allTramos = (window.RV_HORARIOS || []).filter(function (h) {
       return h.servicio === String(marchT);
     });
     svc.servicioComercial = String(marchT);
-    if (tramo) {
-      svc.origen   = tramo.origen;
-      svc.destino  = tramo.destino;
-      svc.hSalida  = tramo.hSalida;
-      svc.hDestino = tramo.hDestino;
-      // Paradas intermedias: horas teóricas como referencia; rLleg/rSal vacíos para editar.
-      svc.paradas = tramo.paradas.map(function (p) {
-        return {
-          nombre: p.nombre,
-          hora: p.hora,
-          tParada: p.tParada,
-          rLleg: '',
-          rSal: '',
-          viajeros: '',
-          asistencias: '',
-          pmr: []
-        };
-      });
+    if (allTramos.length === 0) return;
+
+    var tramo = null;
+    if (allTramos.length === 1) {
+      tramo = allTramos[0];
+    } else {
+      // Transversal split.
+      if (svc.origen) {
+        tramo = allTramos.find(function (h) { return h.origen === svc.origen; });
+      }
+      if (!tramo && window.HTIryo && typeof window.HTIryo.getActiveLegInfo === 'function') {
+        var info = window.HTIryo.getActiveLegInfo();
+        if (info && info.origen) {
+          tramo = allTramos.find(function (h) { return h.origen === info.origen; });
+        }
+      }
+      // Si seguimos sin tramo: NO aplicar uno a ciegas. El maquinista elige.
     }
+
+    if (!tramo) return;
+    svc.origen   = tramo.origen;
+    svc.destino  = tramo.destino;
+    svc.hSalida  = tramo.hSalida;
+    svc.hDestino = tramo.hDestino;
+    svc.paradas = tramo.paradas.map(function (p) {
+      return {
+        nombre: p.nombre, hora: p.hora, tParada: p.tParada,
+        rLleg: '', rSal: '', viajeros: '', asistencias: '', pmr: []
+      };
+    });
   }
 
   if (window.HTIryo && typeof window.HTIryo.onMarchaChange === 'function') {
