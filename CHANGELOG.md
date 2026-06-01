@@ -9,6 +9,23 @@ y este proyecto sigue [SemVer](https://semver.org/lang/es/).
 ## [Unreleased]
 
 ### Fixed
+- Calendario con celdas verticales (33×92px) en vez de horizontales:
+  el `#calendario-pane` se colapsaba a ~290px en vez de respetar
+  `max-width:880px`. Causa: el pane es flex item de `body` (flex
+  column) con `display:block` + `flex-basis:0`, lo que hacía que
+  Chrome computase el ancho como `min-content` del grid interior.
+  Fix: añadir `width:100%` al pane RV para que el ancho final sea
+  `min(100%, 880px)`. Aplica a registro/calendario/estadísticas/ajustes.
+- Salir del editor de Registro vía cualquier ruta (no solo "volver")
+  ahora descarta el turno blank. Antes el flujo "click día →
+  editor → sub-nav Calendario" dejaba el blank en `turnos[]` porque
+  `setView` no llamaba a `discardEmptyEdit`. Ahora `setView` detecta
+  cuando se sale de `'registro'` y lo descarta.
+- Scroll del editor al abrir un turno: el scroll real está en
+  `#registro-pane` (`.pane { overflow:auto }`), no en `window`.
+  Resetear `pane.scrollTop = 0` además de `window.scrollTo`.
+
+### Fixed
 - Turno blank ya no ensucia el calendario: `discardEmptyEdit` se llama
   automáticamente al salir del tab Registro (antes solo se ejecutaba
   desde el botón "volver" del editor RV original, que no existe en

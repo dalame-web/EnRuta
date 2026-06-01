@@ -58,7 +58,10 @@
       syncSubnav(name);
     }
     // Al entrar en Registro: scroll arriba + sincronizar marcha activa.
+    // El scroll real está en #registro-pane (.pane{overflow:auto}), no en window.
     if (name === 'registro') {
+      var rp = document.getElementById('registro-pane');
+      if (rp) rp.scrollTop = 0;
       window.scrollTo(0, 0);
       window.setTimeout(syncMarchaToRegistro, 100);
     }

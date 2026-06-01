@@ -260,7 +260,16 @@
   }
 
   // ===== Navegación / vistas =====
+  var lastSetView = '';
   function setView(v) {
+    // Si salimos del editor de Registro hacia otra vista RV, descartar
+    // turno blank si quedó vacío. Esto cubre TODOS los flujos de salida
+    // (botón "volver", cambio de tab, sub-nav), incluso los que no
+    // pasan por onTabChange de app.js (click en día del calendario).
+    if (lastSetView === 'registro' && v !== 'registro') {
+      discardEmptyEdit();
+    }
+    lastSetView = v;
     ['calendario', 'registro', 'estadisticas', 'ajustes'].forEach(function (p) {
       var el = $(p + '-pane');
       if (el) el.classList.toggle('active', p === v);
@@ -477,14 +486,14 @@
     expandedSvc = 0;
     renderEditor();
     setView('registro');
-    // Scroll arriba con varias estrategias: el navegador puede restaurar
-    // la posición previa del pane tras cambiar `.active`.
+    // El scroll real del editor está en #registro-pane (.pane{overflow:auto}),
+    // no en window. Resetear ambos por defensa.
+    var pane = document.getElementById('registro-pane');
+    if (pane) pane.scrollTop = 0;
     window.scrollTo(0, 0);
-    document.documentElement.scrollTop = 0;
-    document.body.scrollTop = 0;
     requestAnimationFrame(function () {
+      if (pane) pane.scrollTop = 0;
       window.scrollTo(0, 0);
-      requestAnimationFrame(function () { window.scrollTo(0, 0); });
     });
   }
 
