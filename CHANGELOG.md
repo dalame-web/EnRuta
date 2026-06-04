@@ -8,6 +8,42 @@ y este proyecto sigue [SemVer](https://semver.org/lang/es/).
 
 ## [Unreleased]
 
+### Fixed (seguimiento GPS — auditoría exhaustiva)
+- **G1 (crítico)**: `autoMark` ya no llama `estimateMark` cuando el GPS
+  reporta parada saltada. Las marcas confirmadas por GPS se hacen **siempre
+  con hora real** y `source:'gps'`. Antes: 1 de cada N marcas era real, las
+  demás se rellenaban con hora teórica (a veces 2-3h obsoleta).
+- **G2 (crítico)**: `pollTick` procesa **todas las paradas confirmadas por
+  GPS en un solo tick** (loop hasta `passedOrigIdx`). Antes: 1 parada cada
+  30s, un AVE Madrid-Sevilla tardaba ~47 min en cascadear todas las paradas.
+  Ahora en milisegundos.
+- **G3 (grave)**: `HTIryo.showService(num, true)` ahora dispara
+  `_dispatchMarchaChange` cuando cambia el tren → `gps-tracking.js` para el
+  tracking automáticamente. Antes el tracking seguía activo con el march
+  viejo, marcando paradas equivocadas.
+- **G4**: `provisionalDelay=0` ya no sobrescribe un adelanto calculado. El
+  delta visible muestra correctamente "−2:00 adelanto" cuando corresponde.
+- **G5**: filtro de precisión GPS. Posiciones con `accuracy > 200m` (típico
+  de cellular fallback) son descartadas; subline muestra "GPS impreciso
+  (Xm) — esperando mejor señal". Antes se aceptaban lecturas de 1-2 km.
+
+### Added (diagnóstico GPS)
+- **Diferenciación visual de marcas** en la tabla de Horario:
+  - `📡 HH:MM` (verde): marca confirmada por GPS.
+  - `✋ HH:MM` (azul): marca manual del maquinista.
+  - `~ HH:MM` (cursiva): estimada (sin señal GPS, calculada de teórica + delta).
+  Antes manual y GPS eran indistinguibles visualmente.
+- **Mensajes específicos de error GPS** en el subline. El maquinista sabe
+  el motivo real del fallo:
+  - `⚠ Permiso de ubicación denegado — revisa ajustes del navegador` (code 1).
+  - `⚠ GPS no disponible — activa la ubicación o sal del túnel` (code 2).
+  - `⏱ GPS lento (>10s) — débil cobertura` (code 3).
+- **Detección proactiva de permisos al arrancar**:
+  `HTIryo.checkGpsPermission()` usa `navigator.permissions.query`. Al cargar
+  la app, el subline muestra el estado del permiso (`📍 Permiso GPS OK`,
+  `⚠ Permiso GPS denegado`, `📍 GPS sin permiso aún`) antes de iniciar
+  tracking. Reactivo a cambios del usuario en ajustes del navegador.
+
 ### Added
 - HT detecta el tramo activo de transversales (servicios con Atocha
   intermedia, ej. 6014 Barcelona→Sevilla). Cuando lo detecta como
