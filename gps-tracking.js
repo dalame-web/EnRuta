@@ -139,7 +139,11 @@
 
   // ===== Registro de marcas ==================================================
   // Filtro de precisión GPS (m). Por encima → no marca, espera mejor señal.
-  var MAX_ACCURACY_M = 200;
+  // 1500m es permisivo a propósito: un AVE a 300 km/h recorre 5 km/min,
+  // así que ±1.5 km son ~18 s de error → no afecta a la ventana de marca.
+  // Sólo rechaza posiciones realmente malas (Wi-Fi triangulation puede dar
+  // varios km de error en interior de túneles).
+  var MAX_ACCURACY_M = 1500;
   // Si el GPS reporta que ya pasamos por la parada actual, marcar con hora real.
   // El parámetro `skipped` se mantiene por compatibilidad pero ya NO altera la fuente
   // (antes hacía estimateMark, ahora siempre marca con GPS).
