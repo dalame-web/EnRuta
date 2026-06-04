@@ -1,4 +1,4 @@
-const CACHE = 'iryostudio-v2';
+const CACHE = 'iryostudio-v3';
 const PRECACHE = [
   './', './index.html', './manifest.webmanifest',
   './gps-tracking.js', './data.js', './registro.js', './app.js',
