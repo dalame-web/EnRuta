@@ -162,16 +162,36 @@
     });
   }
 
-  window.addEventListener('iryo:htDelaysChanged', function () {
+  // Debounce: cuando GPS marca en cascada (G2), setMark dispara N eventos
+  // muy rápidos. Sin debounce, applyDelaysToSvc + refreshEditor se ejecutaría
+  // N veces. Agrupamos en una sola actualización.
+  var _delaysTimer = null;
+  function _doDelayCrossfeed() {
+    _delaysTimer = null;
     if (!window.HTIryo || !window.HTIryo.getStopDelays || !window.REGISTRO) return;
-    var delays = window.HTIryo.getStopDelays();
-    if (!delays) return;
+    var march = window.HTIryo.getMarch();
+    if (!march || !march.t) return;
     var turno = window.REGISTRO.getActiveTurno && window.REGISTRO.getActiveTurno();
     if (!turno) return;
     var svc = turno.servicios && turno.servicios[0];
     if (!svc) return;
-    applyDelaysToSvc(svc, delays);
+    // FIX transversal: si svc tiene número pero NO paradas, intentar
+    // rellenar el tramo ahora (HT puede haber detectado leg después).
+    var needsTramo = svc.servicioComercial === String(march.t)
+      && (!svc.paradas || svc.paradas.length === 0);
+    if (needsTramo) applyMarchToSvc(svc, march.t);
+    var delays = window.HTIryo.getStopDelays();
+    if (delays) applyDelaysToSvc(svc, delays);
     if (window.REGISTRO.refreshEditor) window.REGISTRO.refreshEditor();
+  }
+  window.addEventListener('iryo:htDelaysChanged', function () {
+    if (_delaysTimer) clearTimeout(_delaysTimer);
+    _delaysTimer = setTimeout(_doDelayCrossfeed, 200);
+  });
+  // Mismo handler para cuando HT cambia tramo (transversal cruza umbral Atocha).
+  window.addEventListener('iryo:legChanged', function () {
+    if (_delaysTimer) clearTimeout(_delaysTimer);
+    _delaysTimer = setTimeout(_doDelayCrossfeed, 50);
   });
 
   // === Cross-feed: HT → Registro (completo) ===
@@ -239,8 +259,19 @@
       if (!turno) return;
       var svc = turno.servicios && turno.servicios[0];
       if (!svc) return;
-      // Mismo servicio ya asignado: no hacer nada.
-      if (svc.servicioComercial === String(march.t)) return;
+      // Mismo servicio ya asignado: re-aplicar SOLO si svc.paradas está vacío
+      // (caso transversal: detectActiveLeg activó el tramo después del primer
+      // onMarchaChange — re-evaluar ahora que HT.getActiveLegInfo da tramo).
+      if (svc.servicioComercial === String(march.t)) {
+        if (!svc.paradas || svc.paradas.length === 0) {
+          applyMarchToSvc(svc, march.t);
+          if (svc.paradas && svc.paradas.length > 0) {
+            window.dispatchEvent(new CustomEvent('iryo:marchaApplied', { detail: march }));
+            if (window.REGISTRO.refreshEditor) window.REGISTRO.refreshEditor();
+          }
+        }
+        return;
+      }
 
       function doApply() {
         applyMarchToSvc(svc, march.t);
