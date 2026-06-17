@@ -21,6 +21,7 @@
 <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/microsoft-signalr/8.0.7/signalr.min.js"></script>
+<meta name="ebula-version" content="v38.loc">
 <script>if(typeof pdfjsLib!=='undefined'){pdfjsLib.GlobalWorkerOptions.workerSrc='https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js';}</script>
 <style>
   :root{
@@ -1353,9 +1354,191 @@
 
   /* save-flash z encima de sub-nav */
   .save-flash{z-index:1100}
+
+  /* ===== AÑADIDO DESDE HT ===== */
+  /* B6 — Versión en pantalla de inicio */
+  .home-version{font-family:'JetBrains Mono',ui-monospace,Consolas,monospace;
+    color:#cbd1d8;font-size:12px;margin:6px 0 0;letter-spacing:.5px;opacity:.85}
+
+  /* B1 — Botón seguimiento por hora */
+  .track-btn{font-family:'Poppins',sans-serif;font-size:12px;font-weight:600;cursor:pointer;
+    background:rgba(63,185,80,.16);color:#3fb950;border:1px solid rgba(63,185,80,.55);
+    border-radius:6px;padding:5px 12px;letter-spacing:.2px;transition:background .15s,border-color .15s,color .15s}
+  .track-btn:hover{background:rgba(63,185,80,.26)}
+  .track-btn.off{background:rgba(248,81,73,.16);color:#ff6b6b;border-color:rgba(248,81,73,.55)}
+  .track-btn.off:hover{background:rgba(248,81,73,.26)}
+  body.light .track-btn{background:#dcfce7;color:#15803d;border-color:#15803d}
+  body.light .track-btn:hover{background:#bbf7d0}
+  body.light .track-btn.off{background:#fee2e2;color:#b91c1c;border-color:#b91c1c}
+  body.light .track-btn.off:hover{background:#fecaca}
+
+  /* B2 — Paradas mixtas (comercial + técnica) */
+  td.com.mixto{background:linear-gradient(90deg,rgba(63,185,80,.10) 0%,rgba(240,136,62,.14) 100%);font-size:15px}
+  td.com.mixto .num-com{color:var(--ok);font-weight:600}
+  td.com.mixto .num-tec{color:var(--warn);font-weight:600}
+  td.com.mixto .num-sep{color:var(--fg-dim);margin:0 1px}
+  body.light td.com.mixto{background:linear-gradient(90deg,rgba(21,128,61,.10) 0%,rgba(188,76,0,.12) 100%)}
+  body.light td.com.mixto .num-com{color:#15803d}
+  body.light td.com.mixto .num-tec{color:#9a3412}
+  @media (max-width:640px){ td.com.mixto{font-size:13px} }
+
+  /* B3 — Panel CRC (teléfonos GSM-R) */
+  .crc-content{max-width:880px;width:100%;box-sizing:border-box;margin:0 auto;padding:20px 16px 36px}
+  .crc-content h2{font-family:'Poppins',sans-serif;font-weight:700;font-size:22px;
+    margin:0 0 22px 0;color:#e8201c}
+  .crc-sub{color:var(--fg-dim);font-size:12.5px;margin:0 0 18px}
+  .crc-card{border:1px solid var(--border);border-radius:10px;overflow:hidden;margin-bottom:20px;background:var(--panel)}
+  .crc-head{padding:8px 14px;font-weight:700;font-size:13.5px;letter-spacing:.8px;color:#fff}
+  .crc-l010{background:#92d050}
+  .crc-l030{background:#43903b}
+  .crc-l040{background:#d9742c}
+  .crc-l042{background:#c25e12}
+  .crc-l050{background:#2187b8}
+  .crc-table{width:100%;border-collapse:collapse;font-size:13px}
+  .crc-table thead th{background:var(--panel-2);color:var(--fg-dim);font-size:11px;text-transform:uppercase;letter-spacing:1px;padding:7px 10px;text-align:left;border-bottom:1px solid var(--border)}
+  .crc-table td{padding:9px 10px;border-top:1px solid var(--border);vertical-align:middle;text-align:left;color:var(--fg)}
+  .crc-table tbody tr:first-child td{border-top:0}
+  .crc-gsmr{font-family:'JetBrains Mono',ui-monospace,Consolas,monospace;font-weight:600;letter-spacing:1px;white-space:nowrap;font-size:12.5px}
+  a.crc-tel{color:var(--accent);font-weight:700;white-space:nowrap;text-decoration:none}
+  a.crc-tel:hover{text-decoration:underline}
+  .crc-pk{display:block;font-size:11px;color:var(--fg-dim);margin-top:1px}
+  .crc-badge{display:inline-block;padding:2px 9px;border-radius:999px;border:1px solid var(--border);background:var(--panel-2);font-size:11.5px;font-weight:600}
+  tr.crc-hl td{background:rgba(255,214,0,.10)}
+  tr.crc-hl td:first-child{box-shadow:inset 3px 0 0 #ffd600}
+  body.light tr.crc-hl td{background:rgba(255,214,0,.22)}
+  @media (max-width:620px){
+    .crc-table{font-size:12px}
+    .crc-table td{padding:8px 6px}
+    .crc-gsmr{font-size:11px;letter-spacing:.5px}
+    .crc-content{padding:14px 10px 28px}
+  }
+
+  /* B4 — Estado de la Red (avisos ADIF) */
+  .estado-red{margin:0 0 18px;border:1px solid var(--warn);border-radius:10px;overflow:hidden;background:var(--panel)}
+  .estado-red .er-head{display:flex;justify-content:space-between;align-items:baseline;gap:10px;flex-wrap:wrap;
+    padding:9px 14px;background:rgba(240,136,62,.14);border-bottom:1px solid var(--border)}
+  .estado-red .er-title{font-family:'Poppins',sans-serif;font-weight:700;font-size:14px;color:var(--warn)}
+  .estado-red .er-meta{font-size:11px;color:var(--fg-dim)}
+  .estado-red .er-item{padding:9px 14px;border-top:1px solid var(--border);font-size:13px;line-height:1.5;color:var(--fg)}
+  .estado-red .er-item:first-of-type{border-top:0}
+  .estado-red .er-tag{display:inline-block;margin-right:6px;padding:1px 7px;border-radius:999px;
+    background:var(--warn);color:#1a1205;font-size:10.5px;font-weight:700;vertical-align:middle}
+  .estado-red .er-empty{padding:10px 14px;font-size:12.5px;color:var(--fg-dim)}
+  .estado-red .er-foot{padding:7px 14px;border-top:1px solid var(--border);font-size:11px}
+  .estado-red .er-foot a{color:var(--accent);text-decoration:none}
+  .estado-red .er-foot a:hover{text-decoration:underline}
+  #er-modal{position:fixed;inset:0;z-index:10001;display:flex;align-items:center;justify-content:center;background:rgba(0,0,0,.55);backdrop-filter:blur(2px)}
+  #er-modal .erm-card{position:relative;background:var(--panel);border:1px solid var(--warn);border-radius:12px;max-width:480px;width:calc(100% - 32px);max-height:80vh;overflow:auto;padding:16px 18px;color:var(--fg);box-shadow:0 12px 36px rgba(0,0,0,.6)}
+  #er-modal h3{margin:0 24px 6px 0;font-family:'Poppins',sans-serif;font-weight:700;font-size:15px;color:var(--warn)}
+  #er-modal .erm-meta{font-size:11px;color:var(--fg-dim);margin-bottom:10px}
+  #er-modal .erm-item{font-size:13px;line-height:1.55;padding:8px 0;border-top:1px solid var(--border)}
+  #er-modal .erm-item:first-child{border-top:0}
+  #er-modal .erm-close{position:absolute;top:8px;right:10px;background:none;border:0;color:inherit;font-size:22px;line-height:1;cursor:pointer}
+
+  /* B5 — Popup de confirmación personalizado (appModal) */
+  .modal-overlay{position:fixed;inset:0;z-index:100000;display:flex;align-items:center;justify-content:center;
+    background:rgba(0,0,0,.55);padding:20px;opacity:0;pointer-events:none;transition:opacity .15s ease}
+  .modal-overlay.open{opacity:1;pointer-events:auto}
+  .modal-box{background:var(--panel);color:var(--fg);border:1px solid var(--border);border-radius:14px;
+    max-width:440px;width:100%;box-shadow:0 18px 50px rgba(0,0,0,.5);padding:20px 20px 16px;
+    transform:translateY(8px) scale(.98);transition:transform .15s ease}
+  .modal-overlay.open .modal-box{transform:none}
+  .modal-title{font-size:17px;font-weight:700;margin:0 0 8px;line-height:1.25}
+  .modal-msg{font-size:14px;line-height:1.5;opacity:.92;white-space:pre-line;margin:0 0 18px}
+  .modal-actions{display:flex;flex-wrap:wrap;gap:10px;justify-content:flex-end}
+  .modal-btn{flex:1 1 auto;min-width:130px;padding:11px 14px;border-radius:9px;border:1px solid var(--border);
+    background:var(--panel-2);color:var(--fg);font-size:14px;font-weight:600;cursor:pointer;transition:filter .1s ease}
+  .modal-btn:hover{filter:brightness(1.12)}
+  .modal-btn:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
+  .modal-btn.primary{background:var(--accent);border-color:var(--accent);color:#fff}
+  .modal-btn.danger{background:#e8201c;border-color:#e8201c;color:#fff}
+  .modal-btn.neutral{background:var(--panel-2);color:var(--fg)}
+  body.modal-open{overflow:hidden}
+  @media (max-width:520px){ .modal-btn{flex-basis:100%} }
 </style>
 </head>
 <body class="locked">
+<script>
+/* ===== appModal — ventanas propias de la app (sustituyen confirm()/alert()) =====
+ * window.appModal.confirm({title, message, buttons:[{label, value, kind}], dismissValue, backdropClose})
+ *   → Promise<value> (value del botón pulsado; dismissValue en ESC/fondo)
+ * window.appModal.alert({title, message, button}) → Promise<void>
+ * kind: 'primary' (resaltado y enfocado) | 'danger' (rojo) | 'neutral'. */
+(function(){
+  var overlay = null, box = null, current = null, queue = [];
+  function build(){
+    if(overlay) return;
+    overlay = document.createElement('div');
+    overlay.className = 'modal-overlay';
+    overlay.setAttribute('role','presentation');
+    box = document.createElement('div');
+    box.className = 'modal-box';
+    box.setAttribute('role','dialog');
+    box.setAttribute('aria-modal','true');
+    overlay.appendChild(box);
+    overlay.addEventListener('click', function(e){
+      if(e.target === overlay && current && current.backdropClose) resolveWith(current.dismissValue);
+    });
+    document.addEventListener('keydown', function(e){
+      if(!current) return;
+      if(e.key === 'Escape'){ e.preventDefault(); resolveWith(current.dismissValue); }
+    });
+    document.body.appendChild(overlay);
+  }
+  function render(opts){
+    box.innerHTML = '';
+    var ttl = document.createElement('div'); ttl.className = 'modal-title'; ttl.textContent = opts.title || '';
+    var msg = document.createElement('div'); msg.className = 'modal-msg'; msg.textContent = opts.message || '';
+    var acts = document.createElement('div'); acts.className = 'modal-actions';
+    if(opts.title) box.appendChild(ttl);
+    if(opts.message) box.appendChild(msg);
+    var focusBtn = null;
+    (opts.buttons||[]).forEach(function(b){
+      var el = document.createElement('button');
+      el.type = 'button';
+      el.className = 'modal-btn' + (b.kind ? ' ' + b.kind : '');
+      el.textContent = b.label;
+      el.addEventListener('click', function(){ resolveWith(b.value); });
+      acts.appendChild(el);
+      if(b.kind === 'primary' && !focusBtn) focusBtn = el;
+    });
+    if(!focusBtn) focusBtn = acts.querySelector('.modal-btn');
+    box.appendChild(acts);
+    overlay.classList.add('open');
+    document.body.classList.add('modal-open');
+    if(focusBtn){ try{ focusBtn.focus(); }catch(e){} }
+  }
+  function resolveWith(value){
+    if(!current) return;
+    var res = current.resolve;
+    current = null;
+    overlay.classList.remove('open');
+    document.body.classList.remove('modal-open');
+    try{ res(value); }catch(e){}
+    if(queue.length){ var next = queue.shift(); start(next); }
+  }
+  function start(item){ current = item; build(); render(item.opts); }
+  function open(opts){
+    return new Promise(function(resolve){
+      var dv = opts.dismissValue;
+      if(typeof dv === 'undefined'){
+        var safe = (opts.buttons||[]).filter(function(b){ return b.kind !== 'danger'; })[0];
+        dv = safe ? safe.value : ((opts.buttons||[])[0] || {}).value;
+      }
+      var item = { opts: opts, resolve: resolve, backdropClose: !!opts.backdropClose, dismissValue: dv };
+      if(current){ queue.push(item); } else { start(item); }
+    });
+  }
+  window.appModal = {
+    confirm: function(opts){ return open(opts); },
+    alert: function(opts){
+      return open({ title: opts.title, message: opts.message,
+        buttons: [{ label: (opts.button || 'Entendido'), value: true, kind: 'primary' }],
+        backdropClose: true });
+    }
+  };
+})();
+</script>
 <div id="login-overlay">
   <form class="login-card" id="login-form" autocomplete="off" data-form-type="other" novalidate>
     <h1>Iryo Studio</h1>
@@ -2034,6 +2217,7 @@
   <button class="tab active" data-tab="home">🏠 Inicio</button>
   <button class="tab" data-tab="schedule">▦ Horario</button>
   <button class="tab" data-tab="dhltv">⚠ DHLTV</button>
+  <button class="tab" data-tab="crc">📞 CRC</button>
   <button class="tab" data-tab="adif">📡 ADIF</button>
   <button class="tab" data-tab="map">🗺 Mapa</button>
   <button class="tab" data-tab="registro">📋 Registro</button>
@@ -2065,6 +2249,7 @@
       <span class="sub">Hora actual:</span>
       <span id="clock" class="clock">--:--:--</span>
     </span>
+    <button id="track-toggle" class="track-btn" type="button">⏱ Seguimiento: ON</button>
     <span class="ctrl-grp" style="margin-left:auto">
       <span class="sub">Δ marcha:</span>
       <span id="delta" class="delta ontime">±0:00</span>
@@ -2139,10 +2324,12 @@
     <div class="home-overlay">
       <div class="home-title">Iryo Studio</div>
       <div class="home-subtitle">Web no oficial</div>
+      <div class="home-version" id="sw-version">ebula-v.</div>
       <div class="home-author">Autor: David Mu&ntilde;oz Primo</div>
       <div class="home-actions">
         <button class="home-btn home-btn-primary" data-tab="schedule">&#9646; Ver horario</button>
         <button class="home-btn" data-tab="dhltv">&#9888; DHLTV</button>
+        <button class="home-btn" data-tab="crc">&#128222; CRC</button>
         <button class="home-btn" data-tab="adif">&#128225; ADIF</button>
         <button class="home-btn" data-tab="map">&#128507; Ver mapa</button>
         <button class="home-btn" data-tab="calendario">&#128197; Calendario</button>
@@ -2224,8 +2411,19 @@
     <div id="dhltv-list"></div>
   </div>
 </section>
+<section id="crc-pane" class="pane">
+  <div class="crc-content">
+    <h2>&#128222; CRC &mdash; Tel&eacute;fonos GSM-R por l&iacute;nea y trayecto</h2>
+    <div class="crc-card"><div class="crc-head crc-l010">L010 &middot; L018</div><table class="crc-table"><thead><tr><th>GSM-R</th><th>Tel&eacute;fono</th><th>Trayecto</th><th>CRC</th></tr></thead><tbody><tr class="crc-hl"><td class="crc-gsmr">7 7 2 0 1 0 0 1</td><td><a class="crc-tel" href="tel:914688250">914 688 250</a></td><td>&Aacute;mbito de Atocha<span class="crc-pk">PK 0 - PK 5+500</span></td><td><span class="crc-badge">Atocha</span></td></tr><tr><td class="crc-gsmr">7 7 2 0 2 0 0 1</td><td><a class="crc-tel" href="tel:914688251">914 688 251</a></td><td>Atocha - Puertollano<span class="crc-pk">PK 5+500 - PK 224</span></td><td><span class="crc-badge">Atocha</span></td></tr><tr class="crc-hl"><td class="crc-gsmr">7 7 2 0 3 0 0 1</td><td><a class="crc-tel" href="tel:914688252">914 688 252</a></td><td>Puertollano - Sevilla<span class="crc-pk">PK 224 - PK 471</span></td><td><span class="crc-badge">Atocha</span></td></tr></tbody></table></div>
+    <div class="crc-card"><div class="crc-head crc-l030">L030</div><table class="crc-table"><thead><tr><th>GSM-R</th><th>Tel&eacute;fono</th><th>Trayecto</th><th>CRC</th></tr></thead><tbody><tr><td class="crc-gsmr">7 7 2 0 3 0 0 1</td><td rowspan="2"><a class="crc-tel" href="tel:951960453">951 960 453</a></td><td>Bif. M&aacute;laga - La Marota<span class="crc-pk">PK 0 - PK 7+400</span></td><td><span class="crc-badge">Atocha</span></td></tr><tr><td class="crc-gsmr">7 7 2 5 0 1 0 1</td><td>Bif. M&aacute;laga - M&aacute;laga<span class="crc-pk">Resto de l&iacute;nea</span></td><td><span class="crc-badge">Atocha</span></td></tr><tr class="crc-hl"><td class="crc-gsmr">7 7 3 0 0 0 0 1</td><td><a class="crc-tel" href="tel:951960454">951 960 454</a></td><td>Bif. M&aacute;laga - M&aacute;laga<span class="crc-pk">Resto de l&iacute;nea</span></td><td><span class="crc-badge">Antequera</span></td></tr></tbody></table></div>
+    <div class="crc-card"><div class="crc-head crc-l040">L040</div><table class="crc-table"><thead><tr><th>GSM-R</th><th>Tel&eacute;fono</th><th>Trayecto</th><th>CRC</th></tr></thead><tbody><tr class="crc-hl"><td class="crc-gsmr">7 7 8 0 0 1 0 1</td><td><a class="crc-tel" href="tel:914688406">914 688 406</a></td><td>Chamart&iacute;n - Bif. Torrej&oacute;n de Velasco</td><td><span class="crc-badge">Atocha</span></td></tr><tr><td class="crc-gsmr">7 7 4 0 0 1 0 1</td><td><a class="crc-tel" href="tel:967539500">967 539 500</a></td><td>Bif. Torrej&oacute;n de Velasco - Monteagudo de las Salinas</td><td><span class="crc-badge">Albacete</span></td></tr><tr class="crc-hl"><td class="crc-gsmr">7 7 4 0 0 2 0 1</td><td><a class="crc-tel" href="tel:967539502">967 539 502</a></td><td>Monteagudo de las Salinas - Valencia</td><td><span class="crc-badge">Albacete</span></td></tr></tbody></table></div>
+    <div class="crc-card"><div class="crc-head crc-l042">L042</div><table class="crc-table"><thead><tr><th>GSM-R</th><th>Tel&eacute;fono</th><th>Trayecto</th><th>CRC</th></tr></thead><tbody><tr><td class="crc-gsmr">7 7 4 0 0 2 0 1</td><td><a class="crc-tel" href="tel:967539532">967 539 532</a></td><td>Bif. Albacete - Pozorrubielos<span class="crc-pk">PK 248 - PK 253</span></td><td><span class="crc-badge">Albacete</span></td></tr><tr class="crc-hl"><td class="crc-gsmr">7 7 4 0 0 3 0 1</td><td><a class="crc-tel" href="tel:967539511">967 539 511</a></td><td>Bif. Albacete - Alicante<span class="crc-pk">PK 253 - PK 486</span></td><td><span class="crc-badge">Albacete</span></td></tr></tbody></table></div>
+    <div class="crc-card"><div class="crc-head crc-l050">L050 &middot; L054 &middot; L066</div><table class="crc-table"><thead><tr><th>GSM-R</th><th>Tel&eacute;fono</th><th>Trayecto</th><th>CRC</th></tr></thead><tbody><tr class="crc-hl"><td class="crc-gsmr">7 7 5 0 1 0 0 1</td><td><a class="crc-tel" href="tel:976539302">976 539 302</a></td><td>Madrid Sur - Calatayud<span class="crc-pk">PK 4 - PK 247</span></td><td><span class="crc-badge">Zaragoza</span></td></tr><tr><td class="crc-gsmr">7 7 5 0 2 0 0 1</td><td><a class="crc-tel" href="tel:976539303">976 539 303</a></td><td>Plasencia de Jal&oacute;n - Ballobar<span class="crc-pk">PK 247 - PK 425</span></td><td><span class="crc-badge">Zaragoza</span></td></tr><tr><td class="crc-gsmr">7 7 5 0 3 0 0 1</td><td><a class="crc-tel" href="tel:976539305">976 539 305</a></td><td>Montagut - La Pobla de Montorn&egrave;s<span class="crc-pk">PK 425 - PK 547</span></td><td><span class="crc-badge">Zaragoza</span></td></tr><tr class="crc-hl"><td class="crc-gsmr">7 7 5 0 4 0 0 1</td><td><a class="crc-tel" href="tel:976539306">976 539 306</a></td><td>L&rsquo;Arbo&ccedil; - Barcelona Sants<span class="crc-pk">PK 547 - PK 625</span></td><td><span class="crc-badge">Zaragoza</span></td></tr><tr><td class="crc-gsmr">7 7 5 0 5 0 0 1</td><td><a class="crc-tel" href="tel:976539307">976 539 307</a></td><td>La Sagrera - L&iacute;mite ADIF - LFPSA<span class="crc-pk">PK 625 - PK 752</span></td><td><span class="crc-badge">Zaragoza</span></td></tr></tbody></table></div>
+  </div>
+</section>
 <section id="adif-pane" class="pane">
   <div class="adif-content">
+    <div id="estado-red" class="estado-red" hidden></div>
     <div class="adif-header">
       <div>
         <h2>&#128225; ADIF &mdash; Servicios Iryo en circulaci&oacute;n</h2>
@@ -3830,7 +4028,78 @@ window.addEventListener('unload', ebulaClearAllData);
   // intermedia). 0 = recorrido completo. Si vale el índice de Atocha en
   // march.s → mostrar solo desde Atocha hasta el destino (tramo 2).
   let activeLegStart = 0;
+  let trackingOn = true;
   const ATOCHA_NAME = 'MADRID-P.ATOCHA-ALMUDENA GRANDES';
+
+  // ===== Sistema estable de marcas por nombre+km (HOR-001) =====
+  function clearOldServiceData(oldKey){
+    if(!oldKey) return;
+    if(punches[oldKey]){ delete punches[oldKey]; savePunches(); }
+    if(markSource[oldKey]){ delete markSource[oldKey]; saveMarkSource(); }
+    try{
+      var g = JSON.parse(localStorage.getItem('ebula_gpslog_v1')||'{}');
+      if(g[oldKey]){ delete g[oldKey]; localStorage.setItem('ebula_gpslog_v1', JSON.stringify(g)); }
+    }catch(e){}
+  }
+  function serviceHasMarks(oldKey){
+    return !!(oldKey && punches[oldKey] && Object.keys(punches[oldKey]).length);
+  }
+  function rowMarkKey(idx){
+    const s = march && march.s ? march.s[idx] : null;
+    if(!s) return null;
+    const base = (s.n||'') + '|' + (s.k!=null ? s.k : '');
+    let occ = 0;
+    for(let i=0;i<idx;i++){
+      const r = march.s[i];
+      if(r && ((r.n||'') + '|' + (r.k!=null ? r.k : '')) === base) occ++;
+    }
+    return occ ? base + '|' + occ : base;
+  }
+  function getMarkAt(idx){
+    const nk = rowMarkKey(idx);
+    return nk != null ? (punches[tickKey()]||{})[nk] : undefined;
+  }
+  function getMarkSrcAt(idx){
+    const nk = rowMarkKey(idx);
+    return nk != null ? (markSource[tickKey()]||{})[nk] : undefined;
+  }
+  function setMarkAt(idx, hhmm, src){
+    const nk = rowMarkKey(idx);
+    if(nk == null) return;
+    const key = tickKey();
+    if(!punches[key]) punches[key]={};
+    if(!markSource[key]) markSource[key]={};
+    punches[key][nk] = hhmm;
+    markSource[key][nk] = src;
+  }
+  function clearMarkAt(idx){
+    const nk = rowMarkKey(idx);
+    const key = tickKey();
+    if(nk != null && punches[key] && punches[key][nk] != null){
+      delete punches[key][nk];
+      if(markSource[key]) delete markSource[key][nk];
+      return true;
+    }
+    return false;
+  }
+  function migrateMarkKeys(){
+    const key = tickKey();
+    let changed = false;
+    [punches, markSource].forEach(store=>{
+      const obj = store[key];
+      if(!obj) return;
+      Object.keys(obj).forEach(k=>{
+        if(!/^\d+$/.test(k)) return;
+        const nk = rowMarkKey(+k);
+        if(nk != null && obj[nk] == null) obj[nk] = obj[k];
+        delete obj[k];
+        changed = true;
+      });
+    });
+    if(changed){ savePunches(); saveMarkSource(); }
+  }
+  // ===== Fin HOR-001 =====
+
   function detectActiveLeg(){
     activeLegStart = 0;
     if(!march || !march.s) return;
@@ -3841,11 +4110,8 @@ window.addEventListener('unload', ebulaClearAllData);
     if(atochaIdx < 0) return;  // no es transversal con Atocha intermedia
     // GPS / punches manda: si hay marca post-Atocha → tramo 2 confirmado.
     // Si hay marca pre-Atocha → tramo 1 (alguien marca desde origen real).
-    const k = tickKey();
-    const trPunches = punches[k] || {};
-    const punchedIdx = Object.keys(trPunches).map(Number);
-    const hasPost = punchedIdx.some(function(i){ return i >= atochaIdx; });
-    const hasPre  = punchedIdx.some(function(i){ return i <  atochaIdx; });
+    const hasPost = march.s.some(function(_, i){ return i >= atochaIdx && getMarkAt(i) != null; });
+    const hasPre  = march.s.some(function(_, i){ return i <  atochaIdx && getMarkAt(i) != null; });
     if(hasPost){ activeLegStart = atochaIdx; return; }
     if(hasPre) return;
     // Sin punches → por hora. Tolerancia -60min (preparación pre-servicio).
@@ -3893,8 +4159,9 @@ window.addEventListener('unload', ebulaClearAllData);
   function loadPrefs(){try{
     const p=JSON.parse(localStorage.getItem(STORAGE)||'{}');
     if(typeof p.idx==='number')curIdx=p.idx;
+    if(typeof p.tracking==='boolean') trackingOn = p.tracking;
   }catch(e){}}
-  function savePrefs(){try{localStorage.setItem(STORAGE,JSON.stringify({idx:curIdx}))}catch(e){}}
+  function savePrefs(){try{localStorage.setItem(STORAGE,JSON.stringify({idx:curIdx,tracking:trackingOn}))}catch(e){}}
 
   function buildAllMarchas(){
     ALL_MARCHAS = [];
@@ -4047,6 +4314,7 @@ window.addEventListener('unload', ebulaClearAllData);
     tbody.innerHTML='';
     if(!march || !march.s){ applyPunches(); return; }
     injectBoxAnns(march);  // inserta anotaciones de recuadro (TASF/LZB/VÍA/…) una vez por marcha
+    migrateMarkKeys();     // convierte marcas antiguas (índice numérico) al formato nombre+km
     const vmxSpans = computeSpans(march.s, 'v', true);  // VMáx: une a través de vacías cuando coinciden valores
     vmxOwnerMap = new Array(march.s.length).fill(-1);
     let curVmxOwner = -1;
@@ -4088,7 +4356,10 @@ window.addEventListener('unload', ebulaClearAllData);
       if(isComStop) tr.classList.add('com-stop');
       if(!s.h) tr.classList.add('no-time');
       let comTxt='', comCls='com', comTitle='';
-      if(s.c){ comTxt=s.c; comTitle='Parada comercial (min)'; }
+      if(s.c && s.tc){
+        comTxt='<span class="num-com">'+s.c+'</span><span class="num-sep">+</span><span class="num-tec">'+s.tc+'</span>';
+        comCls='com mixto'; comTitle='Comercial '+s.c+' min + Técnica '+s.tc+' min';
+      } else if(s.c){ comTxt=s.c; comTitle='Parada comercial (min)'; }
       else if(s.tc){ comTxt=s.tc; comCls='com tecn'; comTitle='Parada técnica (min)'; }
       const vSpan = vmxSpans[idx].span;
       const vmxOwner = vSpan===0 ? -1 : idx;
@@ -4234,10 +4505,11 @@ window.addEventListener('unload', ebulaClearAllData);
       if(!td.dataset.idx) return;
       if(td.dataset.noMark) return;
       const idx = +td.dataset.idx;
-      const p = trPunches[idx];
+      const nk = rowMarkKey(idx);
+      const p = nk != null ? trPunches[nk] : undefined;
       if(p){
         td.classList.add('punched');
-        const src = trSrc[idx];
+        const src = nk != null ? trSrc[nk] : undefined;
         td.classList.toggle('mark-est', src === 'est');
         td.classList.toggle('mark-gps', src === 'gps');
         td.classList.toggle('mark-manual', src === 'manual' || (!src));
@@ -4278,17 +4550,18 @@ window.addEventListener('unload', ebulaClearAllData);
     if(!march || !march.s) return;
     const t = nowMin();
     const stops = march.s;
-    const key = tickKey();
-    const trPunches = punches[key]||{};
-
-    let lp = -1, delayMin = 0;
-    Object.keys(trPunches).map(Number).forEach(i=>{
-      if(stops[i] && stops[i].tm!=null && i>lp) lp = i;
-    });
-    if(lp>=0){
-      const [h,m] = trPunches[lp].split(':').map(Number);
+    let lp = -1, lpReal = -1, delayMin = 0;
+    for(let i=0;i<stops.length;i++){
+      if(stops[i].tm!=null && getMarkAt(i)!=null){
+        lp = i;
+        if(getMarkSrcAt(i) !== 'est') lpReal = i;
+      }
+    }
+    const lpDelta = lpReal >= 0 ? lpReal : lp;
+    if(lpDelta>=0){
+      const [h,m] = String(getMarkAt(lpDelta)).split(':').map(Number);
       let realMin = h*60+m;
-      let diff = realMin - stops[lp].tm;
+      let diff = realMin - stops[lpDelta].tm;
       if(diff<-12*60) diff += 24*60;
       if(diff>12*60) diff -= 24*60;
       delayMin = diff;
@@ -4315,12 +4588,15 @@ window.addEventListener('unload', ebulaClearAllData);
     if(lp>=0 && activeIdx<lp) activeIdx = lp;
     // Con el seguimiento GPS activo, la posición la manda la ÚLTIMA MARCA REAL:
     // no se extrapola por reloj (la app no impone una estimación de posición).
-    if(window.HTIryo && window.HTIryo.isTracking && window.HTIryo.isTracking()){
-      activeIdx = (lp>=0) ? lp : 0;
-      prevIdx = activeIdx;
-      nextIdx = -1;
-      for(let j=activeIdx+1;j<stops.length;j++){ if(stops[j].tm!=null){ nextIdx=j; break; } }
+    if(window.HTIryo && window.HTIryo.isTracking && window.HTIryo.isTracking() && lp >= 0){
+      if(provisionalDelay != null && provisionalDelay > 0){
+        activeIdx = lp;
+        prevIdx = lp;
+        nextIdx = -1;
+        for(let j=activeIdx+1;j<stops.length;j++){ if(stops[j].tm!=null){ nextIdx=j; break; } }
+      }
     }
+    if(!trackingOn){ activeIdx = -1; prevIdx = -1; nextIdx = -1; }
 
     // Remove now-merged class from all merged cells
     document.querySelectorAll('#rows td.merged.now-merged').forEach(td=>td.classList.remove('now-merged'));
@@ -4410,16 +4686,13 @@ window.addEventListener('unload', ebulaClearAllData);
 
   // ---- punches ----
   function punchAt(idx){
-    const key = tickKey();
-    if(!punches[key]) punches[key]={};
     const t = liveMode ? nowMin() : manualOffsetMs;
     const h = Math.floor(t/60)%24, m = Math.floor(t%60);
-    punches[key][idx] = pad(h)+':'+pad(m);
-    if(!markSource[key]) markSource[key]={};
-    markSource[key][idx] = 'manual';
+    setMarkAt(idx, pad(h)+':'+pad(m), 'manual');
     provisionalDelay = null;
     savePunches();
     saveMarkSource();
+    try{ sessionStorage.setItem('ebula_servicio_activo', tickKey()); }catch(e){}
     applyPunches();
     window._suppressAutoScroll = false;
     updatePosition();
@@ -4428,23 +4701,29 @@ window.addEventListener('unload', ebulaClearAllData);
     }
   }
   function clearPunch(idx){
-    const key = tickKey();
-    if(punches[key] && punches[key][idx]!=null){
-      delete punches[key][idx];
-      if(markSource[key]) delete markSource[key][idx];
+    if(clearMarkAt(idx)){
       provisionalDelay = null;
       savePunches();saveMarkSource();applyPunches();updatePosition();
     }
   }
   function clearAllPunches(){
-    if(!confirm('¿Borrar TODOS los pasos marcados de ESTE tren?')) return;
-    delete punches[tickKey()];
-    delete markSource[tickKey()];
-    provisionalDelay = null;
-    savePunches();
-    saveMarkSource();
-    applyPunches();
-    updatePosition();
+    appModal.confirm({
+      title: 'Borrar punteo',
+      message: '¿Borrar TODOS los pasos marcados de este tren?',
+      buttons: [
+        { label: 'Cancelar', value: false, kind: 'primary' },
+        { label: 'Borrar punteo', value: true, kind: 'danger' }
+      ]
+    }).then(function(ok){
+      if(!ok) return;
+      delete punches[tickKey()];
+      delete markSource[tickKey()];
+      provisionalDelay = null;
+      savePunches();
+      saveMarkSource();
+      applyPunches();
+      updatePosition();
+    });
   }
 
   function goLive(){liveMode=true;updateLive()}
@@ -4798,9 +5077,28 @@ window.addEventListener('unload', ebulaClearAllData);
 
   function bind(){
     $('train').addEventListener('change',e=>{
-      curIdx=+e.target.value; renderHeader(); renderRows(); updatePosition(); savePrefs();
-      if(mapInitialized){ drawRoute(); updateMapTrains(); fitMapToRoute(); }
-      if(window.HTIryo && window.HTIryo._dispatchMarchaChange) window.HTIryo._dispatchMarchaChange();
+      var oldKey = (march ? tickKey() : null);
+      var oldIdx = curIdx;
+      var proceed = function(){
+        curIdx=+e.target.value;
+        renderHeader();
+        if(oldKey && oldKey !== tickKey()) clearOldServiceData(oldKey);
+        renderRows(); updatePosition(); savePrefs();
+        if(mapInitialized){ drawRoute(); updateMapTrains(); fitMapToRoute(); }
+        if(window.HTIryo && window.HTIryo._dispatchMarchaChange) window.HTIryo._dispatchMarchaChange();
+      };
+      if(!serviceHasMarks(oldKey)){ proceed(); return; }
+      appModal.confirm({
+        title: 'Cambiar de tren',
+        message: 'Se borrarán las marcas y el registro GPS del servicio actual (' + ((march&&march.t)||'') + ').',
+        buttons: [
+          { label: 'Seguir en este tren', value: false, kind: 'primary' },
+          { label: 'Cambiar de tren', value: true, kind: 'danger' }
+        ]
+      }).then(function(ok){
+        if(ok) proceed();
+        else e.target.value = oldIdx;
+      });
     });
     $('reset-punches').onclick=clearAllPunches;
     $('rows').addEventListener('click',e=>{
@@ -4929,7 +5227,6 @@ window.addEventListener('unload', ebulaClearAllData);
       // Estructura: { rSalida, rLlegDestino, paradas: { nombre: { rLleg, rSal } } }
       getStopDelays: function(){
         if(!march || !march.s) return null;
-        var trPunches = punches[tickKey()] || {};
         function diffMin(real, teor){
           if(!real || !teor) return null;
           var r = real.split(':'), t = teor.split(':');
@@ -4937,13 +5234,13 @@ window.addEventListener('unload', ebulaClearAllData);
         }
         function fmt(d){ return d > 0 ? '+' + d : String(d); }
         var stops = march.s, last = stops.length - 1;
-        var origenDelay = diffMin(trPunches[0], stops[0] && stops[0].h);
-        var destDelay = diffMin(trPunches[last], stops[last] && stops[last].h);
+        var origenDelay = diffMin(getMarkAt(0), stops[0] && stops[0].h);
+        var destDelay = diffMin(getMarkAt(last), stops[last] && stops[last].h);
         var paradas = {};
         for(var i = 1; i < last; i++){
           var s = stops[i];
           if(s._l010cdi || !s.c) continue;
-          var d = diffMin(trPunches[i], s.h);
+          var d = diffMin(getMarkAt(i), s.h);
           if(d != null) paradas[s.n] = { rLleg: fmt(d), rSal: fmt(d) };
         }
         return {
@@ -5019,6 +5316,64 @@ window.addEventListener('unload', ebulaClearAllData);
       }
     });
   }, 800);
+
+  // V — Popup: servicio anterior en curso (marcas guardadas de sesión anterior)
+  setTimeout(function(){
+    try{
+      var flag = sessionStorage.getItem('ebula_servicio_activo');
+      if(flag) return;  // cambio de tab — recuperación silenciosa
+      var p = JSON.parse(localStorage.getItem(PUNCH_KEY) || '{}');
+      var keys = Object.keys(p).filter(function(k){ return p[k] && Object.keys(p[k]).length > 0; });
+      if(!keys.length) return;
+      var curKey = (march ? tickKey() : null);
+      if(!curKey || !p[curKey] || !Object.keys(p[curKey]).length) return;
+      appModal.confirm({
+        title: '⚠ Servicio anterior en curso',
+        message: 'Hay marcas guardadas del tren ' + (march.t||'') + ' (' + (march.o||'') + ' → ' + (march.d||'') + ').\n\n¿Continuar con ese servicio o empezar de nuevo?',
+        buttons: [
+          { label: 'Continuar servicio', value: true, kind: 'primary' },
+          { label: 'Empezar de nuevo', value: false, kind: 'danger' }
+        ]
+      }).then(function(ok){
+        if(!ok){
+          clearOldServiceData(curKey);
+          applyPunches();
+          updatePosition();
+        } else {
+          setTimeout(function(){
+            if(window.HTIryo && window.HTIryo.startTracking) window.HTIryo.startTracking();
+          }, 300);
+        }
+      });
+    }catch(e){}
+  }, 1200);
+
+  // W — Botón ⏱ Seguimiento ON/OFF
+  (function bindTrackToggle(){
+    const btn=$('track-toggle'); if(!btn) return;
+    const sync=()=>{
+      btn.textContent = trackingOn ? '⏱ Seguimiento: ON' : '⏱ Seguimiento: OFF';
+      btn.classList.toggle('off', !trackingOn);
+      btn.title = trackingOn
+        ? 'Seguimiento por hora activado — púlsalo para ver el horario sin seguimiento'
+        : 'Seguimiento desactivado — púlsalo para reactivar el seguimiento por hora';
+    };
+    sync();
+    btn.addEventListener('click',()=>{
+      trackingOn=!trackingOn; sync(); savePrefs();
+      if(trackingOn) window._suppressAutoScroll=false;
+      if(march) updatePosition();
+    });
+    if(window.HTIryo){
+      window.HTIryo.enableHourFollow = function(){
+        if(trackingOn) return;
+        trackingOn = true; sync(); savePrefs();
+        window._suppressAutoScroll = false;
+        if(march) updatePosition();
+      };
+    }
+  })();
+
   // Detectar pestaña activa inicial y marcar body
   const initialActiveTab = document.querySelector('.tab.active');
   if(initialActiveTab) document.body.classList.add('tab-' + initialActiveTab.dataset.tab);
@@ -5375,18 +5730,24 @@ async function handleLTVUpload(file){
 }
 
 function clearLTV(){
-  if(!confirm('¿Eliminar todas las limitaciones cargadas?')) return;
-  LTV_LIST = [];
-  try{ localStorage.removeItem(LTV_KEY); }catch(e){}
-  const status = $('dhltv-status');
-  if(status) status.textContent = 'Sin documento cargado';
-  // Limpiar el input para permitir re-subir cualquier PDF (incluso el mismo
-  // que estuvo cargado antes). Sin esta línea, el navegador considera el
-  // valor del input igual al de antes y no dispara el evento change.
-  const fi = $('dhltv-file');
-  if(fi) fi.value = '';
-  renderLTVList();
-  if(march) renderRows();
+  appModal.confirm({
+    title: 'Eliminar limitaciones',
+    message: '¿Eliminar todas las limitaciones cargadas?',
+    buttons: [
+      { label: 'Cancelar', value: false, kind: 'primary' },
+      { label: 'Eliminar', value: true, kind: 'danger' }
+    ]
+  }).then(function(ok){
+    if(!ok) return;
+    LTV_LIST = [];
+    try{ localStorage.removeItem(LTV_KEY); }catch(e){}
+    const status = $('dhltv-status');
+    if(status) status.textContent = 'Sin documento cargado';
+    const fi = $('dhltv-file');
+    if(fi) fi.value = '';
+    renderLTVList();
+    if(march) renderRows();
+  });
 }
 
 // Bind DHLTV controls (called once on init)
@@ -5695,10 +6056,135 @@ renderLTVList();
 
 })();
 
+/* ===== Estado de la Red (ADIF) — fetch en vivo vía proxy CORS (cache-busting) ===== */
+(function(){
+  var PROXY='https://r.jina.ai/https://www.adif.es/viajeros/estado-de-la-red';
+  var HS=["alta velocidad", "iryo", "ilsa"];
+  var STA=["alacant", "albacete", "alicante", "antequera", "atocha", "barcelona", "calatayud", "camp de tarragona", "chamartin", "ciudad real", "cordoba", "cuenca", "guadalajara", "joaquin sorolla", "la sagrera", "los llanos", "madrid", "malaga", "monforte", "plasencia de jalon", "puertollano", "sants", "sevilla", "tarragona", "valencia", "zaragoza"];
+  var NEG=/cercanias|rodalies|rodalia|media distancia|ancho convencional|ancho metrico|nucleo de|linea c[0-9]|linea r[0-9]/;
+  var CACHE_KEY='ebula_estado_red_v3';
+  var SEEN_KEY='ebula_estado_seen_v2';
+  var REFRESH_MS=120000;
+  var MIN_GAP=8000;
+  var lastFetch=0, inFlight=false;
+  function esc(s){return String(s).replace(/[&<>"']/g,function(c){return {'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c];});}
+  function fmtFecha(f){return String(f||'').replace(/\s*-\s*Estado de la Red\s*-\s*/i,' - ');}
+  function norm(s){return String(s).normalize('NFKD').replace(/[̀-ͯ]/g,'').toLowerCase().replace(/[^a-z0-9 ]/g,' ').replace(/\s+/g,' ').trim();}
+  function relevant(t){var n=norm(t);if(NEG.test(n))return false;var hs=false;for(var a=0;a<HS.length;a++){if(n.indexOf(HS[a])>=0){hs=true;break;}}if(!hs)return false;for(var i=0;i<STA.length;i++){if(n.indexOf(STA[i])>=0)return true;}return false;}
+  function clean(s){
+    s=s.replace(/\[([^\]]*?)\]\([^)]*\)/g,function(m,t){return t.replace(/ Enlace externo.*$/,'');});
+    s=s.replace(/Para m[aá]s informaci[oó]n:.*$/i,'');
+    return s.replace(/\s+/g,' ').trim();
+  }
+  function parse(md){
+    var lines=md.split(/\r?\n/), started=false, items=[], cur=null, fecha='';
+    var md2=md.match(/(\d{2}-\d{2}-\d{4} - Estado de la Red - [\d:]+ Horas)/);
+    if(md2) fecha=md2[1];
+    for(var i=0;i<lines.length;i++){
+      var ln=lines[i];
+      if(/Estado de la Red/.test(ln) && /^#{1,6}\s/.test(ln)){started=true;continue;}
+      if(!started) continue;
+      if(/^\s*[\*\-]\s+/.test(ln)){ if(cur)items.push(cur); cur=ln.replace(/^\s*[\*\-]\s+/,'').trim(); }
+      else if(/^#{1,6}\s/.test(ln)){ if(cur){items.push(cur);cur=null;} }
+      else if(ln.trim()===''){ }
+      else if(cur!=null){ cur+=' '+ln.trim(); }
+    }
+    if(cur) items.push(cur);
+    items=items.map(clean).filter(function(x){return x && x.length>3;});
+    var ok = /Informaci[oó]n del tr[aá]fico ferroviario/i.test(md) || fecha!=='';
+    return {ok:ok, fecha:fecha, items:items};
+  }
+  function render(fecha,msgs){
+    var box=document.getElementById('estado-red'); if(!box) return;
+    box.hidden=false;
+    var head='<div class="er-head"><span class="er-title">⚠ Estado de la Red</span>'+(fecha?'<span class="er-meta">'+esc(fmtFecha(fecha))+'</span>':'')+'</div>';
+    var body=(msgs&&msgs.length)
+      ? msgs.map(function(m){return '<div class="er-item">'+esc(m)+'</div>';}).join('')
+      : '<div class="er-empty">No hay incidencias notificadas por Adif.</div>';
+    box.innerHTML=head+body;
+  }
+  function renderOffline(){
+    var box=document.getElementById('estado-red'); if(!box) return;
+    box.hidden=false;
+    box.innerHTML='<div class="er-head"><span class="er-title">⚠ Estado de la Red</span></div><div class="er-empty">No se ha podido conectar con Adif.</div>';
+  }
+  function showCached(){
+    var c=null; try{ c=JSON.parse(localStorage.getItem(CACHE_KEY)); }catch(e){}
+    if(c && typeof c.fecha!=='undefined'){ render(c.fecha, c.msgs||[]); return true; }
+    return false;
+  }
+  function sig(t){ return norm(t).slice(0,140); }
+  function getSeen(){ try{ return JSON.parse(localStorage.getItem(SEEN_KEY))||[]; }catch(e){ return []; } }
+  function setSeen(arr){ var u={},o=[]; for(var i=arr.length-1;i>=0 && o.length<150;i--){ if(!u[arr[i]]){u[arr[i]]=1;o.unshift(arr[i]);} } try{ localStorage.setItem(SEEN_KEY,JSON.stringify(o)); }catch(e){} }
+  function closeErModal(){ var m=document.getElementById('er-modal'); if(m) m.remove(); }
+  function showErPopup(msgs,fecha){
+    closeErModal();
+    var items=msgs.map(function(m){ return '<div class="erm-item">'+esc(m)+'</div>'; }).join('');
+    var ov=document.createElement('div'); ov.id='er-modal';
+    ov.innerHTML='<div class="erm-card" role="dialog" aria-modal="true" aria-label="Nuevo aviso de Estado de la Red">'+
+      '<button class="erm-close" title="Cerrar" aria-label="Cerrar">×</button>'+
+      '<h3>⚠ Estado de la Red — '+(msgs.length>1?'nuevos avisos':'nuevo aviso')+'</h3>'+
+      (fecha?'<div class="erm-meta">'+esc(fmtFecha(fecha))+'</div>':'')+
+      '<div class="erm-body">'+items+'</div></div>';
+    ov.addEventListener('click', function(e){ if(e.target===ov || e.target.classList.contains('erm-close')) closeErModal(); });
+    document.body.appendChild(ov);
+  }
+  document.addEventListener('keydown', function(e){ if(e.key==='Escape') closeErModal(); });
+  function detectNew(rel,fecha){
+    var first=(localStorage.getItem(SEEN_KEY)===null);
+    var seen=getSeen(), seenSet={}; seen.forEach(function(s){ seenSet[s]=1; });
+    var fresh=rel.filter(function(m){ return !seenSet[sig(m)]; });
+    setSeen(seen.concat(rel.map(sig)));
+    if(!first && fresh.length){ showErPopup(fresh,fecha); }
+  }
+  function fetchLive(){
+    if(inFlight) return;
+    if(lastFetch && (Date.now()-lastFetch)<MIN_GAP) return;
+    inFlight=true;
+    var url=PROXY+'?_='+Date.now();
+    var ctrl=(typeof AbortController!=='undefined')?new AbortController():null;
+    var to=ctrl?setTimeout(function(){ try{ctrl.abort();}catch(e){} },13000):null;
+    fetch(url,{cache:'no-store',signal:ctrl?ctrl.signal:undefined})
+      .then(function(r){ if(!r.ok) throw new Error('http'); return r.text(); })
+      .then(function(md){
+        var p=parse(md);
+        if(!p.ok) throw new Error('parse');
+        var rel=p.items.filter(relevant);
+        lastFetch=Date.now();
+        try{ localStorage.setItem(CACHE_KEY,JSON.stringify({fecha:p.fecha,msgs:rel,at:Date.now()})); }catch(e){}
+        render(p.fecha,rel);
+        detectNew(rel,p.fecha);
+      })
+      .catch(function(){ if(!showCached()) renderOffline(); })
+      .then(function(){ inFlight=false; if(to)clearTimeout(to); });
+  }
+  function isAdifActive(){ var p=document.getElementById('adif-pane'); return p && p.classList.contains('active') && !document.hidden; }
+  function bind(){
+    document.addEventListener('click', function(e){
+      var t=e.target.closest && e.target.closest('[data-tab="adif"]');
+      if(t) setTimeout(fetchLive,30);
+    });
+    document.addEventListener('visibilitychange', function(){ if(!document.hidden) fetchLive(); });
+    setTimeout(function(){ showCached(); fetchLive(); }, 600);
+    setInterval(function(){ if(!document.hidden) fetchLive(); }, REFRESH_MS);
+  }
+  if(document.readyState==='loading'){ document.addEventListener('DOMContentLoaded', bind); } else { bind(); }
+})();
+
+/* ===== Versiones en pantalla de inicio ===== */
+(function showSwVersion(){
+  const el = document.getElementById('sw-version'); if(!el) return;
+  const ORIGINAL_VER = 'ebula-v82';
+  const STUDIO_VER   = 'iryostudio-v2';
+  const LOC_VER      = 'loc.-V17';
+  el.textContent = ORIGINAL_VER + ' | ' + STUDIO_VER + ' | ' + LOC_VER;
+})();
+
 </script>
 <script src="data.js?v=202605272315"></script>
-<script src="registro.js?v=202605290500"></script>
-<script src="app.js?v=202606051100"></script>
-<script src="gps-tracking.js?v=202606051100"></script>
+<script src="registro.js?v=202606171200"></script>
+<script src="app.js?v=202606171200"></script>
+<script src="app-logger.js?v=202606171200"></script>
+<script src="gps-tracking.js?v=202606171200"></script>
 </body>
 </html>

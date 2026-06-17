@@ -8,6 +8,29 @@ y este proyecto sigue [SemVer](https://semver.org/lang/es/).
 
 ## [Unreleased]
 
+### Added (unificación HT → Studio — iryostudio-v2)
+- **Sistema estable de marcas (HOR-001)**: las marcas de paso se guardan ahora
+  por nombre de estación + km en vez de por número de fila. Las marcas sobreviven
+  a actualizaciones del horario y se migran automáticamente.
+- **Popup de confirmación propio** (`appModal`): sustituye al cuadro feo del
+  navegador en "Borrar punteo", "Cambiar de tren" y "Eliminar limitaciones DHLTV".
+- **Pestaña CRC**: tabla de teléfonos GSM-R por línea y trayecto (L010, L030,
+  L040, L042, L050).
+- **Botón ⏱ Seguimiento ON/OFF**: permite activar/desactivar el resaltado de
+  posición actual en el cuadro de marcha, con estado persistido.
+- **Estado de la Red** (pestaña ADIF): avisos de circulación de ADIF filtrados
+  para alta velocidad; caché offline; popup si hay avisos nuevos.
+- **Popup "servicio anterior en curso"**: al reabrir la app con marcas guardadas
+  pregunta si continuar o empezar de nuevo; si continúa, reanuda el GPS.
+- **Confirmación al cambiar de tren**: si hay marcas guardadas, pregunta antes
+  de borrarlas junto con el log GPS del servicio.
+- **Paradas mixtas** (comercial + técnica): celda "5+2" con gradiente verde→naranja.
+- **Versión en pantalla de inicio**: muestra `ebula-v82 | iryostudio-v2 | loc.-V17`.
+- `app-logger.js` portado de HT (registro de eventos + webhook Make.com).
+- `gps-tracking.js` actualizado a la versión de HT con todas las mejoras GPS.
+- `horario.html` actualizado a la versión actual de HT.
+
+
 ### Fixed (seguimiento GPS — auditoría exhaustiva)
 - **G1 (crítico)**: `autoMark` ya no llama `estimateMark` cuando el GPS
   reporta parada saltada. Las marcas confirmadas por GPS se hacen **siempre

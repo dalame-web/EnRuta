@@ -13,7 +13,7 @@
   var K_TURNOS = 'rviryo_turnos_v1';
   var K_SETTINGS = 'rviryo_settings_v1';
   var K_HORARIOS = 'rviryo_horarios_v1';
-  var APP_VERSION = 'iryostudio-v1';
+  var APP_VERSION = 'iryostudio-v2';
 
   var COMPROBACIONES = [
     'Arranque rama', 'Estado Pantógrafo', 'DAT/DHLTV', 'ASFA', 'ETCS/LZB',
