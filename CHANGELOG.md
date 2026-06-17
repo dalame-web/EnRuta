@@ -8,6 +8,16 @@ y este proyecto sigue [SemVer](https://semver.org/lang/es/).
 
 ## [Unreleased]
 
+### Changed
+- **Orden de pestañas**: Registro pasa a estar justo después de Horario
+  (antes estaba tras Mapa). Calendario se mantiene al final.
+- **Actualización sin reinicio**: cuando hay versión nueva, aparece un aviso
+  verde discreto abajo ("Nueva versión disponible — Actualizar") en vez de
+  obligar a cerrar y reabrir la app. Al pulsar Actualizar, el nuevo Service
+  Worker toma el control y la app recarga una sola vez. Se comprueba si hay
+  versión nueva al volver a la app. (`sw.js`: el SW nuevo espera en vez de
+  activarse solo; el cliente lo activa con `SKIP_WAITING`.)
+
 ### Added (unificación HT → Studio — iryostudio-v2)
 - **Sistema estable de marcas (HOR-001)**: las marcas de paso se guardan ahora
   por nombre de estación + km en vez de por número de fila. Las marcas sobreviven

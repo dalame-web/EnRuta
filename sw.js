@@ -1,4 +1,4 @@
-const CACHE = 'iryostudio-v5';
+const CACHE = 'iryostudio-v6';
 const PRECACHE = [
   './', './index.html', './manifest.webmanifest',
   './gps-tracking.js', './boxann.js', './data.js', './registro.js', './app.js', './app-logger.js',
@@ -6,8 +6,13 @@ const PRECACHE = [
 ];
 
 self.addEventListener('install', e => {
+  // No llamamos skipWaiting() aquí: el SW nuevo queda "esperando" hasta que el
+  // usuario pulse "Actualizar" en el banner (el cliente envía SKIP_WAITING).
   e.waitUntil(caches.open(CACHE).then(c => c.addAll(PRECACHE)));
-  self.skipWaiting();
+});
+
+self.addEventListener('message', e => {
+  if (e.data && e.data.type === 'SKIP_WAITING') self.skipWaiting();
 });
 
 self.addEventListener('activate', e => {

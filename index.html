@@ -863,6 +863,30 @@
     #pwa-install .pwa-text small{display:none}
     #pwa-install button{padding:6px 10px;font-size:11px}
   }
+  /* Aviso de nueva versión disponible (actualización del Service Worker) */
+  #sw-update{position:fixed;left:50%;bottom:20px;transform:translateX(-50%) translateY(120%);
+    z-index:9001;display:none;align-items:center;gap:12px;padding:10px 14px;
+    background:linear-gradient(135deg,#2ea043 0%,#1f883d 100%);
+    color:#fff;border-radius:12px;border:1px solid rgba(255,255,255,.18);
+    box-shadow:0 8px 28px rgba(0,0,0,.45);
+    font-family:'Poppins',sans-serif;font-weight:600;font-size:13px;
+    max-width:calc(100% - 24px);transition:transform .35s cubic-bezier(.2,.7,.3,1.1)}
+  #sw-update.show{display:flex;transform:translateX(-50%) translateY(0)}
+  #sw-update .swu-icon{font-size:18px;line-height:1}
+  #sw-update .swu-text{display:flex;flex-direction:column;line-height:1.25}
+  #sw-update .swu-text small{font-weight:500;opacity:.9;font-size:11px}
+  #sw-update button{background:#fff;color:#1f883d;border:0;border-radius:8px;
+    padding:7px 14px;font-weight:700;font-family:'Poppins',sans-serif;font-size:12px;
+    cursor:pointer;letter-spacing:.5px;transition:transform .12s}
+  #sw-update button:hover{transform:scale(1.04)}
+  #sw-update .swu-close{background:transparent;color:#fff;border:0;width:28px;height:28px;
+    padding:0;font-size:18px;line-height:1;cursor:pointer;opacity:.85;border-radius:6px}
+  #sw-update .swu-close:hover{background:rgba(255,255,255,.18);opacity:1;color:#fff}
+  @media (max-width:520px){
+    #sw-update{font-size:12px;padding:9px 10px;gap:8px}
+    #sw-update .swu-text small{display:none}
+    #sw-update button{padding:6px 10px;font-size:11px}
+  }
 
   /* ==== RV Iryo CSS (componentes) ==== */
   h2{font-family:Poppins,sans-serif; font-size:18px; margin:0 0 12px}
@@ -1606,6 +1630,15 @@
   <button id="pwa-install-btn" type="button">INSTALAR</button>
   <button id="pwa-install-close" class="pwa-close" type="button" aria-label="Cerrar">&times;</button>
 </div>
+<div id="sw-update" role="dialog" aria-label="Nueva versión disponible">
+  <span class="swu-icon">🔄</span>
+  <div class="swu-text">
+    <span>Nueva versión disponible</span>
+    <small>Actualiza para tener las últimas mejoras</small>
+  </div>
+  <button id="sw-update-btn" type="button">ACTUALIZAR</button>
+  <button id="sw-update-close" class="swu-close" type="button" aria-label="Cerrar">&times;</button>
+</div>
 <script>
 (function(){
   var DISMISS_KEY='ebula_pwa_dismissed_v1';
@@ -1614,8 +1647,51 @@
   var btn=document.getElementById('pwa-install-btn');
   var closeBtn=document.getElementById('pwa-install-close');
   if('serviceWorker' in navigator && location.protocol!=='file:'){
+    // Aviso de nueva versión: cuando el SW detecta ficheros nuevos, en vez de
+    // forzar al usuario a cerrar y reabrir la app, mostramos un banner con botón
+    // "Actualizar". Al pulsarlo, el SW nuevo toma el control y la página recarga.
+    var swUpdate=document.getElementById('sw-update');
+    var swUpdateBtn=document.getElementById('sw-update-btn');
+    var swUpdateClose=document.getElementById('sw-update-close');
+    var waitingWorker=null;
+    var reloading=false;
+    function showUpdate(worker){
+      waitingWorker=worker;
+      if(swUpdate) swUpdate.classList.add('show');
+    }
+    function hideUpdate(){ if(swUpdate) swUpdate.classList.remove('show'); }
+    if(swUpdateBtn) swUpdateBtn.addEventListener('click', function(){
+      hideUpdate();
+      if(waitingWorker){ waitingWorker.postMessage({type:'SKIP_WAITING'}); }
+    });
+    if(swUpdateClose) swUpdateClose.addEventListener('click', hideUpdate);
+    // Cuando el SW nuevo toma el control, recargar una sola vez para ejecutar
+    // el código fresco.
+    navigator.serviceWorker.addEventListener('controllerchange', function(){
+      if(reloading) return;
+      reloading=true;
+      window.location.reload();
+    });
     window.addEventListener('load', function(){
-      navigator.serviceWorker.register('./sw.js').catch(function(){});
+      navigator.serviceWorker.register('./sw.js').then(function(reg){
+        // Si ya hay un SW esperando al cargar (versión nueva descargada antes).
+        if(reg.waiting && navigator.serviceWorker.controller){ showUpdate(reg.waiting); }
+        reg.addEventListener('updatefound', function(){
+          var nw=reg.installing;
+          if(!nw) return;
+          nw.addEventListener('statechange', function(){
+            // 'installed' + ya había un controlador = es una actualización
+            // (no la primera instalación), así que avisamos.
+            if(nw.state==='installed' && navigator.serviceWorker.controller){
+              showUpdate(nw);
+            }
+          });
+        });
+        // Comprobar si hay versión nueva al volver a la app (foco/visibilidad).
+        document.addEventListener('visibilitychange', function(){
+          if(!document.hidden){ reg.update().catch(function(){}); }
+        });
+      }).catch(function(){});
     });
   }
   function show(){
@@ -2216,11 +2292,11 @@
 <div class="tabs">
   <button class="tab active" data-tab="home">🏠 Inicio</button>
   <button class="tab" data-tab="schedule">▦ Horario</button>
+  <button class="tab" data-tab="registro">📋 Registro</button>
   <button class="tab" data-tab="dhltv">⚠ DHLTV</button>
   <button class="tab" data-tab="crc">📞 CRC</button>
   <button class="tab" data-tab="adif">📡 ADIF</button>
   <button class="tab" data-tab="map">🗺 Mapa</button>
-  <button class="tab" data-tab="registro">📋 Registro</button>
   <button class="tab" data-tab="calendario">📅 Calendario</button>
   <button class="tab" data-tab="usoweb">⚖ Uso web</button>
   <button id="theme-toggle" class="theme-toggle theme-toggle-tabs" title="Cambiar tema día/noche" aria-label="Cambiar tema">🌙</button>
