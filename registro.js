@@ -149,8 +149,10 @@
   function saveSettings() { save(K_SETTINGS, settings); }
 
   function loadHorarios() {
-    var stored = load(K_HORARIOS, null);
-    if (stored && stored.length) { horarios = stored; return; }
+    // El Libro de Horarios se genera siempre desde el Horario de la app
+    // (window.RV_HORARIOS). Se descarta cualquier libro propio guardado en
+    // versiones anteriores para que Registro y Horario nunca se descoordinen.
+    try { localStorage.removeItem(K_HORARIOS); } catch (e) {}
     horarios = (window.RV_HORARIOS || []).slice();
   }
 
@@ -1133,15 +1135,6 @@
       esc(settings.ramas.join('\n')) + '</textarea></div>' +
       '<div class="btn-row" style="margin:0"><button class="btn primary" data-action="save-ramas">Guardar ramas</button></div></div>';
 
-    // 4. Libro de Horarios
-    var horSrc = load(K_HORARIOS, null) ? 'actualizado por ti' : 'incluido con la app';
-    h += '<div class="card"><div class="card-title">Libro de Horarios</div>' +
-      '<div class="hint">' + horarios.length + ' tramos cargados (' + horSrc + ').</div>' +
-      '<div class="btn-row"><button class="btn" data-action="upd-horarios">Actualizar (archivo .json)</button>' +
-      '<button class="btn ghost" data-action="reset-horarios">Restaurar original</button></div>' +
-      '<input type="file" id="file-horarios" accept=".json,application/json" style="display:none">' +
-      '</div>';
-
     // 5. Guardar registros en la tablet
     h += '<div class="card"><div class="card-title">Guardar registros en la tablet</div>' +
       '<div class="hint" style="line-height:1.5">' +
@@ -1509,26 +1502,6 @@
     };
     rd.readAsText(file);
   }
-  function updateHorarios(file) {
-    var rd = new FileReader();
-    rd.onload = function () {
-      try {
-        var d = JSON.parse(rd.result);
-        if (!Array.isArray(d) || !d.length || !d[0].servicio) {
-          alert('El archivo no tiene el formato de Libro de Horarios esperado.');
-          return;
-        }
-        horarios = d;
-        save(K_HORARIOS, horarios);
-        alert('Libro de Horarios actualizado: ' + horarios.length + ' tramos.');
-        renderSettings();
-      } catch (e) {
-        alert('No se pudo leer el archivo.');
-      }
-    };
-    rd.readAsText(file);
-  }
-
   // ===== Eventos delegados =====
   function onInput(e) {
     var el = e.target;
@@ -1750,12 +1723,6 @@
       settings.ramas = arr.length ? arr : DEFAULT_RAMAS.slice();
       saveSettings(); flashSaved(); renderSettings(); return;
     }
-    if (act === 'upd-horarios') { $('file-horarios').click(); return; }
-    if (act === 'reset-horarios') {
-      if (!confirm('¿Restaurar el Libro de Horarios original incluido con la app?')) return;
-      try { localStorage.removeItem(K_HORARIOS); } catch (e2) {}
-      loadHorarios(); renderSettings(); return;
-    }
     if (act === 'export-backup') { exportBackup(); return; }
     if (act === 'import-backup') { $('file-backup').click(); return; }
     if (act === 'wipe') {
@@ -1874,9 +1841,6 @@
     document.addEventListener('change', function (e) {
       if (e.target.id === 'file-backup' && e.target.files[0]) {
         importBackup(e.target.files[0]); e.target.value = '';
-      }
-      if (e.target.id === 'file-horarios' && e.target.files[0]) {
-        updateHorarios(e.target.files[0]); e.target.value = '';
       }
       if (e.target.id === 'set-autodl') {
         settings.autoDownload = e.target.checked;

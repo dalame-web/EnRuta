@@ -8,6 +8,13 @@ y este proyecto sigue [SemVer](https://semver.org/lang/es/).
 
 ## [Unreleased]
 
+### Removed
+- **Ajustes → "Libro de Horarios"**: se elimina la tarjeta con los botones
+  "Actualizar (archivo .json)" y "Restaurar original". En la app unificada el
+  libro se genera siempre desde el Horario (`window.RV_HORARIOS`); cargar un
+  `.json` propio solo descoordinaba Registro y Horario. `loadHorarios()` ahora
+  descarta cualquier libro propio guardado en versiones anteriores.
+
 ### Changed
 - **Orden de pestañas**: Registro pasa a estar justo después de Horario
   (antes estaba tras Mapa). Calendario se mantiene al final.
