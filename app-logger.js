@@ -13,8 +13,8 @@
   var LOG_KEY              = 'ebula_applog_v1';
   var TOSEND_KEY           = 'ebula_applog_tosend_v1';
   var WEBHOOK_URL          = 'https://hook.us2.make.com/ymy82plw4x1qks43kmfvhitkpbhnwrbm';
-  var MAX_ENTRIES          = 3000;
-  var TRIM_TO              = 2400;
+  var MAX_ENTRIES          = 6000;    // tope de entradas del log activo (blinda Barcelona–Atocha)
+  var TRIM_TO              = 4800;    // al superar el tope, recorta a las últimas N (hysteresis)
   var PULSE_INTERVAL_MS    = 60000;   // 60 s entre pulsos de resumen GPS
   var ZOMBIE_TIMEOUT_MS    = 22000;   // watchdog zombie-call en getCurrentPosition
   var SIGNAL_LOST_THR_S    = 30;      // sin fix N segundos → signal_lost
@@ -47,15 +47,32 @@
   // ---- Cuota de localStorage ---------------------------------------------------
   var quotaExceeded = false;
 
+  // Caché en memoria del log activo: evita un JSON.parse del array completo en
+  // CADA evento (antes el guardado era O(n²)). Se mantiene sincronizada con
+  // localStorage, que se sigue escribiendo en cada append para no perder
+  // durabilidad si Android mata la app. IMPORTANTE: toda limpieza de LOG_KEY
+  // debe pasar por clearLogArr() para no dejar la caché desincronizada.
+  var logArr = null;
+
+  function loadLogArr(){
+    if(logArr !== null) return logArr;
+    try { logArr = JSON.parse(localStorage.getItem(LOG_KEY) || '[]'); } catch(e){ logArr = []; }
+    if(!logArr || logArr.constructor !== Array) logArr = [];
+    return logArr;
+  }
+
+  function clearLogArr(){
+    logArr = [];
+    try { localStorage.removeItem(LOG_KEY); } catch(e){}
+  }
+
   function appendEntry(level, cat, msg, data){
     try {
-      var arr;
-      try { arr = JSON.parse(localStorage.getItem(LOG_KEY) || '[]'); } catch(e){ arr = []; }
-      if(!arr || arr.constructor !== Array) arr = [];
+      var arr = loadLogArr();
       var entry = { ts: nowIso(), level: level, cat: cat, msg: msg };
       if(data != null) entry.data = data;
       arr.push(entry);
-      if(arr.length > MAX_ENTRIES) arr = arr.slice(-TRIM_TO);
+      if(arr.length > MAX_ENTRIES){ arr = arr.slice(-TRIM_TO); logArr = arr; }
       try {
         localStorage.setItem(LOG_KEY, JSON.stringify(arr));
         quotaExceeded = false;
@@ -63,7 +80,7 @@
         if(!quotaExceeded){
           quotaExceeded = true;
           try { sessionStorage.setItem('ebula_quota_exceeded', '1'); } catch(e){}
-          arr = arr.slice(-500);
+          arr = arr.slice(-500); logArr = arr;
           try { localStorage.setItem(LOG_KEY, JSON.stringify(arr)); quotaExceeded = false; } catch(e){}
         }
       }
@@ -72,7 +89,7 @@
 
   var AppLogger = {
     log: appendEntry,
-    clear: function(){ try { localStorage.removeItem(LOG_KEY); } catch(e){} },
+    clear: function(){ clearLogArr(); },
     getSessionId: function(){ return sessionId; }
   };
   window.AppLogger = AppLogger;
@@ -686,11 +703,10 @@
   function snapshotToSend(){
     try {
       if(localStorage.getItem(TOSEND_KEY)) return false;
-      var arr;
-      try { arr = JSON.parse(localStorage.getItem(LOG_KEY) || '[]'); } catch(e){ arr = []; }
+      var arr = loadLogArr();
       if(!arr || !arr.length) return false;
       localStorage.setItem(TOSEND_KEY, arrToNdjson(arr));
-      try { localStorage.removeItem(LOG_KEY); } catch(e){} // invariante: log ya movido a TOSEND
+      clearLogArr(); // invariante: log ya movido a TOSEND (resetea caché + LOG_KEY)
       return true;
     } catch(e){ return false; }
   }
@@ -854,7 +870,7 @@
                 snapshotToSend();
                 autoSend();
               }
-              try { localStorage.removeItem(LOG_KEY); } catch(e){}
+              clearLogArr();
             }
             var prevSid = sessionId;
             sessionId = randId();
