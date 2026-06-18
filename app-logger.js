@@ -124,6 +124,7 @@
   // ---- Variables de estado GPS en sesión ---------------------------------------
   var wakelockActive  = false;
   var lastGpsTs       = null;   // nowMs() del último fix OK
+  var _logSentForThisService = false; // evita doble envío (isLastMarkableStation + tracking_stop)
   var lastGpsCoords   = null;
   var lastFixType     = null;   // 'gps'|'cell'|'assisted'
   var consecutiveErrors = 0;
@@ -528,6 +529,36 @@
     } catch(e){ return null; }
   }
 
+  function isLastMarkableStation(idx){
+    try {
+      var m = H() && H().getMarch && H().getMarch();
+      if(!m || !m.s || idx < 0) return false;
+      for(var i = idx + 1; i < m.s.length; i++){
+        var s = m.s[i];
+        if(s.n && window.COORDS && window.COORDS[s.n] && s.tm != null && !s._l010cdi) return false;
+      }
+      return true;
+    } catch(e){ return false; }
+  }
+  function countMarks(arr){
+    var n = 0;
+    for(var i = 0; i < arr.length; i++) if(arr[i] && arr[i].cat === 'gps' && arr[i].msg === 'mark') n++;
+    return n;
+  }
+  function getLogTickKey(arr){
+    for(var i = 0; i < arr.length; i++){
+      var d = arr[i] && arr[i].data;
+      if(d && d.service && d.service.tickKey) return d.service.tickKey;
+    }
+    return null;
+  }
+  function getLogLastDate(arr){
+    for(var i = arr.length - 1; i >= 0; i--){
+      if(arr[i] && arr[i].ts) return arr[i].ts.slice(0, 10);
+    }
+    return null;
+  }
+
   // ---- Wrap HTIryo.setMark / setProvisionalDelay / logManualMark --------------
   function wrapHTIryo(){
     var api = H();
@@ -560,7 +591,16 @@
         markCountdown = 2;
         setMarkInProgress = true;
         try { return origSetMark.apply(this, arguments); }
-        finally { setMarkInProgress = false; }
+        finally {
+          setMarkInProgress = false;
+          setTimeout(function(){
+            if(!_logSentForThisService && isLastMarkableStation(idx)){
+              _logSentForThisService = true;
+              snapshotToSend();
+              autoSend();
+            }
+          }, 400);
+        }
       };
       api.setMark.__alWrapped = true;
     }
@@ -761,18 +801,19 @@
           if(localStorage.getItem(TOSEND_KEY)){
             autoSend();
           } else if(!t){
-            var arr2;
-            try { arr2 = JSON.parse(localStorage.getItem(LOG_KEY) || '[]'); } catch(e){ arr2 = []; }
-            var hadService = false;
-            for(var i = 0; i < arr2.length; i++){
-              if(arr2[i] && arr2[i].cat === 'gps' && arr2[i].msg === 'tracking_start'){
-                hadService = true; break;
+            var _arr2;
+            try { _arr2 = JSON.parse(localStorage.getItem(LOG_KEY) || '[]'); } catch(e){ _arr2 = []; }
+            var _hadSvc = _arr2.some(function(e){ return e && e.cat === 'gps' && e.msg === 'tracking_start'; });
+            if(_hadSvc){
+              var _prevDate  = getLogLastDate(_arr2);
+              var _prevMarks = countMarks(_arr2);
+              var _today     = new Date().toISOString().slice(0, 10);
+              if(_prevMarks >= 5 && _prevDate && _prevDate !== _today){
+                appendEntry('info', 'log_send', 'recuperando_dia_anterior', { date: _prevDate, marks: _prevMarks });
+                snapshotToSend();
+                autoSend();
               }
-            }
-            if(hadService){
-              appendEntry('info', 'log_send', 'recuperando_servicio_cerrado', {});
-              snapshotToSend();
-              autoSend();
+              // mismo día: tracking_start decidirá según tickKey
             }
           }
         }
@@ -780,9 +821,20 @@
         if(t !== last){
           if(t){
             // --- TRACKING START ---
-            snapshotToSend();  // salva log anterior si tenía servicio sin enviar
+            _logSentForThisService = false;
+            var _prevArr; try { _prevArr = JSON.parse(localStorage.getItem(LOG_KEY) || '[]'); } catch(e){ _prevArr = []; }
+            var _prevTkInLog = getLogTickKey(_prevArr);
+            var _curTkNow    = (H() && H().getTickKey) ? H().getTickKey() : null;
+            if(_prevTkInLog && _curTkNow && _prevTkInLog === _curTkNow){
+              // mismo servicio reiniciado → continuar acumulando en LOG_KEY existente
+            } else {
+              if(!localStorage.getItem(TOSEND_KEY) && countMarks(_prevArr) >= 5){
+                snapshotToSend();
+                autoSend();
+              }
+              try { localStorage.removeItem(LOG_KEY); } catch(e){}
+            }
             var prevSid = sessionId;
-            try { localStorage.removeItem(LOG_KEY); } catch(e){}
             sessionId = randId();
 
             // Reset estado
@@ -863,8 +915,10 @@
               battery: getBattery(),
               conn: connType
             });
-            snapshotToSend();
-            autoSend();
+            if(!_logSentForThisService){
+              var _cur; try { _cur = JSON.parse(localStorage.getItem(LOG_KEY) || '[]'); } catch(e){ _cur = []; }
+              if(countMarks(_cur) >= 5){ snapshotToSend(); autoSend(); }
+            }
           }
           last = t;
         }
