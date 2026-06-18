@@ -599,8 +599,7 @@
             if(_logSentForThisService || !isLastMarkableStation(idx)) return;
             var _l; try { _l = JSON.parse(localStorage.getItem(LOG_KEY) || '[]'); } catch(e){ _l = []; }
             if(countMarks(_l) < 5) return;
-            _logSentForThisService = true;
-            snapshotToSend();
+            if(snapshotToSend()) _logSentForThisService = true; // solo "enviado" si se encoló
             autoSend();
           }, 400);
         }
@@ -672,15 +671,19 @@
     return lines.join('\n');
   }
 
+  // Devuelve true solo si capturó el log a TOSEND (false si ya había uno pendiente
+  // o no había nada). El llamador usa el resultado para no marcar como "enviado"
+  // un log que en realidad no llegó a encolarse.
   function snapshotToSend(){
     try {
-      if(localStorage.getItem(TOSEND_KEY)) return;
+      if(localStorage.getItem(TOSEND_KEY)) return false;
       var arr;
       try { arr = JSON.parse(localStorage.getItem(LOG_KEY) || '[]'); } catch(e){ arr = []; }
-      if(!arr || !arr.length) return;
+      if(!arr || !arr.length) return false;
       localStorage.setItem(TOSEND_KEY, arrToNdjson(arr));
       try { localStorage.removeItem(LOG_KEY); } catch(e){} // invariante: log ya movido a TOSEND
-    } catch(e){}
+      return true;
+    } catch(e){ return false; }
   }
 
   var _sending = false;
@@ -810,20 +813,19 @@
           if(localStorage.getItem(TOSEND_KEY)){
             autoSend();
           } else if(!t){
+            // Señal de servicio = ≥5 marcas (más robusto que exigir un tracking_start,
+            // que un servicio muy largo podría haber recortado del buffer).
             var _arr2;
             try { _arr2 = JSON.parse(localStorage.getItem(LOG_KEY) || '[]'); } catch(e){ _arr2 = []; }
-            var _hadSvc = _arr2.some(function(e){ return e && e.cat === 'gps' && e.msg === 'tracking_start'; });
-            if(_hadSvc){
-              var _prevDate  = getLogLastDate(_arr2);
-              var _prevMarks = countMarks(_arr2);
-              var _today     = new Date().toISOString().slice(0, 10);
-              if(_prevMarks >= 5 && _prevDate && _prevDate !== _today){
-                appendEntry('info', 'log_send', 'recuperando_dia_anterior', { date: _prevDate, marks: _prevMarks });
-                snapshotToSend();
-                autoSend();
-              }
-              // mismo día: tracking_start decidirá según tickKey
+            var _prevDate  = getLogLastDate(_arr2);
+            var _prevMarks = countMarks(_arr2);
+            var _today     = new Date().toISOString().slice(0, 10);
+            if(_prevMarks >= 5 && _prevDate && _prevDate !== _today){
+              appendEntry('info', 'log_send', 'recuperando_dia_anterior', { date: _prevDate, marks: _prevMarks });
+              snapshotToSend();
+              autoSend();
             }
+            // mismo día: tracking_start decidirá según tickKey
           }
         }
 
