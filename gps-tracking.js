@@ -145,6 +145,7 @@
                                 // (zonas sin GPS satelital, donde el criterio fine queda ciego)
 
   // ---- Estado antenas + verif satelital (Bloque 4A) ----
+  var stoppedDelayTimer  = null; // setInterval que actualiza provisionalDelay cada 60 s durante PARADO
   var watchId            = null; // handle del watchPosition (compartido 4A/4B, sin solapamiento)
   var satCheckTimer      = null; // setTimeout id de la próxima verif satelital
   var satCheckInFlight   = false;// cerrojo: hay un getCurrentPosition de verif en vuelo
@@ -488,7 +489,6 @@
     coarseStill   = [];
     antennaDriftCount = 0;
     logEvent('parado', 'tren detenido cerca de ' + stName(gpsNextIdx));
-    setStatus('Tren detenido — esperando arranque (cerca de ' + stName(gpsNextIdx) + ')', 'warn');
     // Bloque 4A: cortar el ciclo de getCurrentPosition y dejar las antenas
     // escuchando. El chip GPS queda apagado mientras el watch no detecte movimiento.
     if(pollTimer){ clearTimeout(pollTimer); pollTimer = null; }
@@ -497,6 +497,27 @@
     // devuelve null si no la hay). Sin esto, en un dispositivo sin GPS la verif
     // entraría en bucle fallo→reprograma cada 3 min indefinidamente.
     if(watchId != null) scheduleSatelliteCheck();
+    // LOC-012: actualizar delta inmediatamente y cada 60 s para que el retraso
+    // crezca en pantalla mientras el tren está parado.
+    updateStoppedDelay();
+    stoppedDelayTimer = setInterval(updateStoppedDelay, 60000);
+  }
+
+  // LOC-012: actualiza provisionalDelay y el status con el retraso real acumulado
+  // mientras el tren está parado. Se llama al entrar en PARADO y luego cada 60 s.
+  // Sin esto, provisionalDelay quedaba congelado en el valor previo al paro y el
+  // indicador de retraso no crecía aunque el tren llevara 30 min sin moverse.
+  function updateStoppedDelay(){
+    if(!isStopped || stoppedAtIdx < 0) return;
+    var effNow  = effTime(stoppedAtIdx);
+    var nowMNow = normNow(effNow);
+    // Retraso total = delta de última marca + tiempo adicional sin pasar la estación.
+    // max(0,…): si el tren paró antes de la hora prevista aún no hay retraso extra.
+    var prov = currentDelta() + Math.max(0, nowMNow - effNow);
+    if(API.setProvisionalDelay && prov > 0.5) API.setProvisionalDelay(prov);
+    var durMin = Math.floor((Date.now() - stoppedSince) / 60000);
+    var sufijo = durMin >= 1 ? ' (' + durMin + ' min)' : '';
+    setStatus('Tren detenido — esperando arranque cerca de ' + stName(stoppedAtIdx) + sufijo, 'warn');
   }
 
   function exitStoppedMode(nowMs){
@@ -505,6 +526,7 @@
     // Bloque 4A: limpiar todo el cableado de antenas/verif satelital ANTES de
     // marcar isStopped=false (los callbacks pendientes hacen `if(!isStopped) return`
     // como salvaguarda, pero es más limpio que ni siquiera se disparen).
+    if(stoppedDelayTimer){ clearInterval(stoppedDelayTimer); stoppedDelayTimer = null; }
     if(watchId != null){ GeoSource.watchStop(watchId); watchId = null; }
     if(satCheckTimer){ clearTimeout(satCheckTimer); satCheckTimer = null; }
     antennaDriftCount = 0;
@@ -1280,6 +1302,7 @@
     pollSeq++;               // invalida cualquier lectura en vuelo
     if(watchId != null){ GeoSource.watchStop(watchId); watchId = null; }
     if(satCheckTimer){ clearTimeout(satCheckTimer); satCheckTimer = null; }
+    if(stoppedDelayTimer){ clearInterval(stoppedDelayTimer); stoppedDelayTimer = null; }
     if(coldStartTimer){ clearTimeout(coldStartTimer); coldStartTimer = null; }
     satCheckInFlight = false;
     antennaDriftCount = 0;
@@ -1422,7 +1445,7 @@
           watchId = GeoSource.watchStart(onAntennaReading);
           if(satCheckTimer){ clearTimeout(satCheckTimer); satCheckTimer = null; }
           runSatelliteCheck();
-          setStatus('Tren detenido — esperando arranque (cerca de ' + stName(stoppedAtIdx) + ')', 'warn');
+          updateStoppedDelay(); // LOC-012: refresca delta y status al volver de background
         } else if(preWindowDeferred){
           // Bloque 4B: el watch y el setTimeout pueden venir throttled.
           // Refrescar watch. Si el tiempo a la ventana ya bajó del umbral,
@@ -1474,6 +1497,7 @@
     pollSeq++;               // invalida cualquier lectura en vuelo de la marcha anterior
     if(watchId != null){ GeoSource.watchStop(watchId); watchId = null; }
     if(satCheckTimer){ clearTimeout(satCheckTimer); satCheckTimer = null; }
+    if(stoppedDelayTimer){ clearInterval(stoppedDelayTimer); stoppedDelayTimer = null; }
     if(coldStartTimer){ clearTimeout(coldStartTimer); coldStartTimer = null; }
     satCheckInFlight = false;
     antennaDriftCount = 0;
