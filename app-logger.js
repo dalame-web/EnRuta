@@ -531,11 +531,13 @@
 
   function isLastMarkableStation(idx){
     try {
-      var m = H() && H().getMarch && H().getMarch();
-      if(!m || !m.s || idx < 0) return false;
+      var api = H();
+      var m = api && api.getMarch && api.getMarch();
+      var coords = api && api.COORDS;
+      if(!m || !m.s || !coords || idx < 0) return false; // sin coords → no enviar (fail-safe)
       for(var i = idx + 1; i < m.s.length; i++){
         var s = m.s[i];
-        if(s.n && window.COORDS && window.COORDS[s.n] && s.tm != null && !s._l010cdi) return false;
+        if(s.n && coords[s.n] && s.tm != null && !s._l010cdi) return false;
       }
       return true;
     } catch(e){ return false; }
@@ -594,11 +596,12 @@
         finally {
           setMarkInProgress = false;
           setTimeout(function(){
-            if(!_logSentForThisService && isLastMarkableStation(idx)){
-              _logSentForThisService = true;
-              snapshotToSend();
-              autoSend();
-            }
+            if(_logSentForThisService || !isLastMarkableStation(idx)) return;
+            var _l; try { _l = JSON.parse(localStorage.getItem(LOG_KEY) || '[]'); } catch(e){ _l = []; }
+            if(countMarks(_l) < 5) return;
+            _logSentForThisService = true;
+            snapshotToSend();
+            autoSend();
           }, 400);
         }
       };
@@ -676,13 +679,17 @@
       try { arr = JSON.parse(localStorage.getItem(LOG_KEY) || '[]'); } catch(e){ arr = []; }
       if(!arr || !arr.length) return;
       localStorage.setItem(TOSEND_KEY, arrToNdjson(arr));
+      try { localStorage.removeItem(LOG_KEY); } catch(e){} // invariante: log ya movido a TOSEND
     } catch(e){}
   }
 
+  var _sending = false;
   function autoSend(){
     try {
+      if(_sending) return; // evita dos fetch en vuelo con el mismo TOSEND
       var ndjson = localStorage.getItem(TOSEND_KEY);
       if(!ndjson) return;
+      _sending = true;
       var lines = ndjson.split('\n').length;
 
       // Nombre de fichero con tren y fecha del primer entry
@@ -708,6 +715,7 @@
           entries: lines
         })
       }).then(function(res){
+        _sending = false;
         if(res.ok){
           try { localStorage.removeItem(TOSEND_KEY); } catch(e){}
           appendEntry('info', 'log_send', 'ok', { entries: lines });
@@ -715,11 +723,12 @@
           appendEntry('warn', 'log_send', 'http_error', { status: res.status });
         }
       }).catch(function(err){
+        _sending = false;
         appendEntry('warn', 'log_send', 'fetch_error', {
           msg: err ? String(err.message || err) : null
         });
       });
-    } catch(e){}
+    } catch(e){ _sending = false; }
   }
 
   // ---- Resumen de sesión al tracking_stop ------------------------------------
@@ -824,9 +833,11 @@
             _logSentForThisService = false;
             var _prevArr; try { _prevArr = JSON.parse(localStorage.getItem(LOG_KEY) || '[]'); } catch(e){ _prevArr = []; }
             var _prevTkInLog = getLogTickKey(_prevArr);
+            var _prevDate    = getLogLastDate(_prevArr);
             var _curTkNow    = (H() && H().getTickKey) ? H().getTickKey() : null;
-            if(_prevTkInLog && _curTkNow && _prevTkInLog === _curTkNow){
-              // mismo servicio reiniciado → continuar acumulando en LOG_KEY existente
+            var _todayStr    = new Date().toISOString().slice(0, 10);
+            if(_prevTkInLog && _curTkNow && _prevTkInLog === _curTkNow && _prevDate === _todayStr){
+              // mismo servicio, mismo día → continuar acumulando en LOG_KEY existente
             } else {
               if(!localStorage.getItem(TOSEND_KEY) && countMarks(_prevArr) >= 5){
                 snapshotToSend();
@@ -861,11 +872,12 @@
             // Emite la ruta del servicio con coordenadas para el dashboard
             try {
               var march = H() && H().getMarch && H().getMarch();
-              if(march && march.s && window.COORDS){
+              var coords = H() && H().COORDS;
+              if(march && march.s && coords){
                 var stList = [];
                 for(var si=0; si<march.s.length; si++){
                   var st = march.s[si];
-                  var co = window.COORDS[st.n];
+                  var co = coords[st.n];
                   stList.push({ idx:si, n:st.n, k:st.k||null, h:st.h||null,
                                 lat:co?co[0]:null, lng:co?co[1]:null });
                 }
