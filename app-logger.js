@@ -26,6 +26,15 @@
   function nowIso(){ return new Date().toISOString(); }
   function nowMs(){  return Date.now(); }
   function randId(){ return Math.random().toString(16).slice(2, 10); }
+  // Fecha local "YYYY-MM-DD" (no UTC): evita clasificar como "día anterior" un
+  // servicio de madrugada hora España que en UTC cae el día previo.
+  function localDateStr(d){
+    d = d || new Date();
+    if(isNaN(d)) return null;
+    var mm = ('0' + (d.getMonth() + 1)).slice(-2);
+    var dd = ('0' + d.getDate()).slice(-2);
+    return d.getFullYear() + '-' + mm + '-' + dd;
+  }
 
   // ---- Meta versión ------------------------------------------------------------
   var sessionId = randId();
@@ -556,7 +565,7 @@
   }
   function getLogLastDate(arr){
     for(var i = arr.length - 1; i >= 0; i--){
-      if(arr[i] && arr[i].ts) return arr[i].ts.slice(0, 10);
+      if(arr[i] && arr[i].ts) return localDateStr(new Date(arr[i].ts)); // ts es UTC → fecha local
     }
     return null;
   }
@@ -819,7 +828,7 @@
             try { _arr2 = JSON.parse(localStorage.getItem(LOG_KEY) || '[]'); } catch(e){ _arr2 = []; }
             var _prevDate  = getLogLastDate(_arr2);
             var _prevMarks = countMarks(_arr2);
-            var _today     = new Date().toISOString().slice(0, 10);
+            var _today     = localDateStr();
             if(_prevMarks >= 5 && _prevDate && _prevDate !== _today){
               appendEntry('info', 'log_send', 'recuperando_dia_anterior', { date: _prevDate, marks: _prevMarks });
               snapshotToSend();
@@ -837,7 +846,7 @@
             var _prevTkInLog = getLogTickKey(_prevArr);
             var _prevDate    = getLogLastDate(_prevArr);
             var _curTkNow    = (H() && H().getTickKey) ? H().getTickKey() : null;
-            var _todayStr    = new Date().toISOString().slice(0, 10);
+            var _todayStr    = localDateStr();
             if(_prevTkInLog && _curTkNow && _prevTkInLog === _curTkNow && _prevDate === _todayStr){
               // mismo servicio, mismo día → continuar acumulando en LOG_KEY existente
             } else {
