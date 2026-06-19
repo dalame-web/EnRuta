@@ -1714,7 +1714,7 @@
       } else {
         msg='Abre el menú del navegador (⋮) y selecciona "Instalar aplicación" o "Añadir a pantalla de inicio".';
       }
-      alert(msg);
+      appModal.alert({ title: 'Instalar app', message: msg });
     }
   });
   if(closeBtn) closeBtn.addEventListener('click', function(){
@@ -6185,7 +6185,7 @@ renderLTVList();
 
 </script>
 <script src="data.js?v=202605272315"></script>
-<script src="registro.js?v=202606191800"></script>
+<script src="registro.js?v=202606192000"></script>
 <script src="app.js?v=202606191100"></script>
 <script src="app-logger.js?v=202606171200"></script>
 <script src="gps-tracking.js?v=202606171200"></script>

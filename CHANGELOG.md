@@ -8,6 +8,14 @@ y este proyecto sigue [SemVer](https://semver.org/lang/es/).
 
 ## [iryostudio-v3]
 
+### Fixed (2026-06-19 — ronda 3)
+- **Mensajes emergentes inconsistentes**: todos los `alert()` y `confirm()` nativos
+  del sistema (feos, bloquean el hilo) reemplazados por el `appModal` propio de la
+  app — mismo estilo que el resto de la interfaz.
+- **Opción "Descarga automática" eliminada de Ajustes**: el checkbox ya no aparece
+  (la funcionalidad está desactivada desde la ronda anterior). El texto de la tarjeta
+  explica que se puede exportar manualmente desde "Copia de seguridad".
+
 ### Fixed (2026-06-19 — ronda 2)
 - **Formato de retraso ilegible** (`registro.js` `fmtRetraso`): valores ≥ 60 min
   ahora muestran `+1h 05m` en lugar de `+65m`.

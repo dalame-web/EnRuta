@@ -922,7 +922,7 @@
   function startDictado(si) {
     var SR = window.SpeechRecognition || window.webkitSpeechRecognition;
     if (!SR) {
-      alert('Tu navegador no soporta dictado por voz. Usa el teclado de escritura a mano de la tablet.');
+      appModal.alert({ title: 'Dictado no disponible', message: 'Tu navegador no soporta dictado por voz. Usa el teclado de escritura a mano de la tablet.' });
       return;
     }
     var t = getTurno(editId);
@@ -949,11 +949,11 @@
     rec.onerror = function (e) {
       stopDictado();
       if (e.error === 'not-allowed' || e.error === 'service-not-allowed') {
-        alert('Hay que permitir el micrófono para dictar.');
+        appModal.alert({ title: 'Micrófono bloqueado', message: 'Hay que permitir el micrófono para dictar.' });
       } else if (e.error === 'no-speech') {
         // silencio, no avisar
       } else {
-        alert('Error de dictado: ' + e.error);
+        appModal.alert({ title: 'Error de dictado', message: 'Error de dictado: ' + e.error });
       }
     };
     rec.onend = function () {
@@ -1117,18 +1117,9 @@
     // 5. Guardar registros en la tablet
     h += '<div class="card"><div class="card-title">Guardar registros en la tablet</div>' +
       '<div class="hint" style="line-height:1.5">' +
-      'Los turnos se guardan dentro de la app (en la tablet) y sobreviven a las ' +
-      'actualizaciones. Para tener además un archivo accesible desde el explorador ' +
-      'de archivos, activa la descarga automática: cada vez que cierres un turno se ' +
-      'guardará una copia <b>rviryo-copia-FECHA.json</b> en la carpeta <b>Descargas</b>.' +
-      '</div>' +
-      '<label class="check-item" style="margin-top:10px">' +
-      '<input type="checkbox" id="set-autodl"' + (settings.autoDownload ? ' checked' : '') + '>' +
-      '<span>Descargar copia automática al cerrar turno</span></label>' +
-      (settings.lastBackup
-        ? '<div class="hint" style="margin-top:6px">Última copia descargada: <b>' + ymdNice(settings.lastBackup) + '</b></div>'
-        : '<div class="hint" style="margin-top:6px">Aún no se ha descargado ninguna copia.</div>') +
-      '</div>';
+      'Los turnos se guardan dentro de la app y sobreviven a las actualizaciones. ' +
+      'Usa "Copia de seguridad" para exportar un archivo manualmente cuando lo necesites.' +
+      '</div></div>';
 
     // 6. Exportar a PDF (multi-select)
     var sortedT = turnos.slice().sort(function (a, b) {
@@ -1278,7 +1269,7 @@
 
   function exportPDF(t) {
     if (!window.jspdf || !window.jspdf.jsPDF) {
-      alert('No se pudo cargar el generador de PDF (revisa la conexión).');
+      appModal.alert({ title: 'PDF no disponible', message: 'No se pudo cargar el generador de PDF. Revisa la conexión.' });
       return;
     }
     var doc = new window.jspdf.jsPDF({ unit: 'mm', format: 'a4' });
@@ -1291,11 +1282,11 @@
 
   function exportPDFMany(ids) {
     if (!window.jspdf || !window.jspdf.jsPDF) {
-      alert('No se pudo cargar el generador de PDF (revisa la conexión).');
+      appModal.alert({ title: 'PDF no disponible', message: 'No se pudo cargar el generador de PDF. Revisa la conexión.' });
       return;
     }
     var selected = ids.map(getTurno).filter(Boolean);
-    if (!selected.length) { alert('No hay turnos para exportar.'); return; }
+    if (!selected.length) { appModal.alert({ title: 'Sin selección', message: 'No hay turnos para exportar.' }); return; }
     var doc = new window.jspdf.jsPDF({ unit: 'mm', format: 'a4' });
     selected.sort(function (a, b) {
       var fa = (a.servicios[0] && a.servicios[0].fecha) || '';
@@ -1459,24 +1450,32 @@
       try {
         var d = JSON.parse(rd.result);
         if (d.app !== 'rviryo' || !Array.isArray(d.turnos)) {
-          alert('El archivo no es una copia válida de RV Iryo.');
+          appModal.alert({ title: 'Archivo no válido', message: 'El archivo no es una copia válida de RV Iryo.' });
           return;
         }
-        if (!confirm('Esto sustituirá los ' + turnos.length +
-          ' turnos actuales por los ' + d.turnos.length + ' de la copia. ¿Continuar?')) return;
-        turnos = d.turnos.map(normTurno);
-        if (d.settings) {
-          settings = d.settings;
-          if (!settings.ramas || !settings.ramas.length) settings.ramas = DEFAULT_RAMAS.slice();
-          if (!settings.theme) settings.theme = 'dark';
-        }
-        save(K_TURNOS, turnos);
-        saveSettings();
-        applyTheme();
-        alert('Copia importada: ' + turnos.length + ' turnos.');
-        renderSettings();
+        appModal.confirm({
+          title: 'Restaurar copia',
+          message: 'Esto sustituirá los ' + turnos.length + ' turnos actuales por los ' + d.turnos.length + ' de la copia. ¿Continuar?',
+          buttons: [
+            { label: 'Cancelar', value: false, kind: 'neutral' },
+            { label: 'Restaurar', value: true, kind: 'danger' }
+          ]
+        }).then(function (ok) {
+          if (!ok) return;
+          turnos = d.turnos.map(normTurno);
+          if (d.settings) {
+            settings = d.settings;
+            if (!settings.ramas || !settings.ramas.length) settings.ramas = DEFAULT_RAMAS.slice();
+            if (!settings.theme) settings.theme = 'dark';
+          }
+          save(K_TURNOS, turnos);
+          saveSettings();
+          applyTheme();
+          appModal.alert({ title: 'Copia restaurada', message: 'Copia importada: ' + turnos.length + ' turnos.' });
+          renderSettings();
+        });
       } catch (e) {
-        alert('No se pudo leer el archivo.');
+        appModal.alert({ title: 'Error al leer', message: 'No se pudo leer el archivo.' });
       }
     };
     rd.readAsText(file);
@@ -1497,6 +1496,15 @@
       var t = getTurno(editId);
       var s = t ? t.servicios[si] : null;
       // Aviso si hay servicio activo y aún en trayecto (evita cambios involuntarios).
+      function doAutofillSrv() {
+        if (opt && opt.getAttribute('data-idx') != null) {
+          autofillServicio(si, +opt.getAttribute('data-idx'));
+        } else if (t && s) {
+          s.servicioComercial = ''; s.origen = ''; s.destino = '';
+          autosave();
+          refreshServicioCard(si);
+        }
+      }
       if (s && s.servicioComercial && servicioEnCurso(s)) {
         var nuevoNum = '';
         if (opt && opt.getAttribute('data-idx') != null) {
@@ -1504,20 +1512,21 @@
           nuevoNum = hr ? hr.servicio : '';
         }
         if (nuevoNum !== s.servicioComercial) {
-          if (!confirm('Hay un servicio activo (' + s.servicioComercial +
-              '). ¿Reemplazar por ' + (nuevoNum || '(ninguno)') + '?')) {
-            refreshServicioCard(si);
-            return;
-          }
+          appModal.confirm({
+            title: 'Cambiar servicio activo',
+            message: 'Hay un servicio activo (' + s.servicioComercial + '). ¿Reemplazar por ' + (nuevoNum || '(ninguno)') + '?',
+            buttons: [
+              { label: 'Cancelar', value: false, kind: 'neutral' },
+              { label: 'Reemplazar', value: true, kind: 'danger' }
+            ]
+          }).then(function (ok) {
+            if (!ok) { refreshServicioCard(si); return; }
+            doAutofillSrv();
+          });
+          return;
         }
       }
-      if (opt && opt.getAttribute('data-idx') != null) {
-        autofillServicio(si, +opt.getAttribute('data-idx'));
-      } else if (t && s) {
-        s.servicioComercial = ''; s.origen = ''; s.destino = '';
-        autosave();
-        refreshServicioCard(si);
-      }
+      doAutofillSrv();
       return;
     }
     onInput(e);
@@ -1561,11 +1570,21 @@
       renderEditor(); return;
     }
     if (act === 'del-servicio' && t) {
-      if (!confirm('¿Quitar este servicio del turno? No se puede deshacer.')) return;
       var dsi = +el.getAttribute('data-svc');
-      t.servicios.splice(dsi, 1);
-      if (expandedSvc >= t.servicios.length) expandedSvc = t.servicios.length - 1;
-      autosave(); renderEditor(); return;
+      appModal.confirm({
+        title: 'Quitar servicio',
+        message: '¿Quitar este servicio del turno? No se puede deshacer.',
+        buttons: [
+          { label: 'Cancelar', value: false, kind: 'neutral' },
+          { label: 'Quitar', value: true, kind: 'danger' }
+        ]
+      }).then(function (ok) {
+        if (!ok) return;
+        t.servicios.splice(dsi, 1);
+        if (expandedSvc >= t.servicios.length) expandedSvc = t.servicios.length - 1;
+        autosave(); renderEditor();
+      });
+      return;
     }
     if (act === 'add-parada-end' && t) {
       var asi = +el.getAttribute('data-svc');
@@ -1579,10 +1598,21 @@
       autosave(); renderEditor(); return;
     }
     if (act === 'del-parada' && t) {
-      if (!confirm('¿Quitar esta parada?')) return;
-      var dsi = +el.getAttribute('data-svc');
-      t.servicios[dsi].paradas.splice(+el.getAttribute('data-par'), 1);
-      autosave(); renderEditor(); return;
+      var dpsi = +el.getAttribute('data-svc');
+      var dppi = +el.getAttribute('data-par');
+      appModal.confirm({
+        title: 'Quitar parada',
+        message: '¿Quitar esta parada?',
+        buttons: [
+          { label: 'Cancelar', value: false, kind: 'neutral' },
+          { label: 'Quitar', value: true, kind: 'danger' }
+        ]
+      }).then(function (ok) {
+        if (!ok) return;
+        t.servicios[dpsi].paradas.splice(dppi, 1);
+        autosave(); renderEditor();
+      });
+      return;
     }
     if (act === 'add-pmr' && t) {
       var psi = +el.getAttribute('data-svc');
@@ -1644,7 +1674,7 @@
         if (cb.checked) ids.push(cb.getAttribute('data-pdfi'));
       });
       if (!ids.length) {
-        alert('Selecciona al menos un turno para exportar.');
+        appModal.alert({ title: 'Sin selección', message: 'Selecciona al menos un turno para exportar.' });
         return;
       }
       exportPDFMany(ids);
@@ -1659,26 +1689,40 @@
       return;
     }
     if (act === 'borrar' && t) {
-      if (!confirm('¿Borrar este turno por completo? No se puede deshacer.')) return;
-      turnos = turnos.filter(function (x) { return x.id !== t.id; });
-      save(K_TURNOS, turnos);
-      editId = null;
-      renderCalendar(); setView('calendario'); return;
+      appModal.confirm({
+        title: 'Borrar turno',
+        message: '¿Borrar este turno por completo? No se puede deshacer.',
+        buttons: [
+          { label: 'Cancelar', value: false, kind: 'neutral' },
+          { label: 'Borrar', value: true, kind: 'danger' }
+        ]
+      }).then(function (ok) {
+        if (!ok) return;
+        turnos = turnos.filter(function (x) { return x.id !== t.id; });
+        save(K_TURNOS, turnos);
+        editId = null;
+        renderCalendar(); setView('calendario');
+      });
+      return;
     }
 
     // Ajustes
     if (act === 'check-update') {
       if (!('serviceWorker' in navigator)) {
-        alert('Tu navegador no soporta actualizaciones automáticas.');
+        appModal.alert({ title: 'No compatible', message: 'Tu navegador no soporta actualizaciones automáticas.' });
         return;
       }
       navigator.serviceWorker.getRegistration().then(function (reg) {
-        if (!reg) { alert('Aún no hay Service Worker. Recarga la página primero.'); return; }
+        if (!reg) {
+          appModal.alert({ title: 'Sin Service Worker', message: 'Aún no hay Service Worker. Recarga la página primero.' });
+          return;
+        }
         reg.update().then(function () {
-          // Si hay versión nueva, controllerchange recargará antes de que dispare el timeout.
-          setTimeout(function () { alert('Ya tienes la última versión.'); }, 2500);
+          setTimeout(function () {
+            appModal.alert({ title: 'Al día', message: 'Ya tienes la última versión.' });
+          }, 2500);
         }).catch(function () {
-          alert('No se pudo comprobar. ¿Tienes conexión?');
+          appModal.alert({ title: 'Sin conexión', message: 'No se pudo comprobar la actualización. ¿Tienes conexión?' });
         });
       });
       return;
@@ -1697,15 +1741,34 @@
     if (act === 'export-backup') { exportBackup(); return; }
     if (act === 'import-backup') { $('file-backup').click(); return; }
     if (act === 'wipe') {
-      if (!confirm('¿Borrar TODOS los turnos y ajustes? No se puede deshacer.')) return;
-      if (!confirm('Confirma de nuevo: se borrará todo.')) return;
-      turnos = [];
-      try {
-        localStorage.removeItem(K_TURNOS);
-        localStorage.removeItem(K_SETTINGS);
-      } catch (e3) {}
-      settings = {}; loadAll(); applyTheme();
-      renderSettings(); return;
+      appModal.confirm({
+        title: 'Borrar todo',
+        message: '¿Borrar TODOS los turnos y ajustes? Esta acción no se puede deshacer.',
+        buttons: [
+          { label: 'Cancelar', value: false, kind: 'neutral' },
+          { label: 'Borrar todo', value: true, kind: 'danger' }
+        ]
+      }).then(function (ok) {
+        if (!ok) return;
+        appModal.confirm({
+          title: 'Confirma el borrado',
+          message: 'Segunda confirmación: se perderán todos los registros.',
+          buttons: [
+            { label: 'Cancelar', value: false, kind: 'neutral' },
+            { label: 'Sí, borrar todo', value: true, kind: 'danger' }
+          ]
+        }).then(function (ok2) {
+          if (!ok2) return;
+          turnos = [];
+          try {
+            localStorage.removeItem(K_TURNOS);
+            localStorage.removeItem(K_SETTINGS);
+          } catch (e3) {}
+          settings = {}; loadAll(); applyTheme();
+          renderSettings();
+        });
+      });
+      return;
     }
   }
 
