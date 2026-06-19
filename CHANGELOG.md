@@ -8,6 +8,27 @@ y este proyecto sigue [SemVer](https://semver.org/lang/es/).
 
 ## [Unreleased]
 
+### Fixed
+- **Pérdida de turnos al actualizar la app** (`ebulaClearAllData`): `localStorage.clear()` reemplazado
+  por borrado selectivo con allowlist. Se preservan `rviryo_turnos_v1`, `rviryo_settings_v1`,
+  `ebula_auth_v1`, `ebula_theme`, `ebula_overlay_collapsed` e `iryostudio_active_tab`.
+  Las claves efímeras de HT (punches, marcas, ADIF, DHLTV) siguen borrándose al cerrar.
+  Elimina el riesgo de pérdida de datos en cada actualización de SW.
+
+### Removed
+- **Lápiz S-Pen / canvas overlay en Observaciones** (`registro.js`): eliminados pen-draw handler,
+  render de canvas y miniaturas de dibujos. Cumple la regla #3 de CLAUDE.md. El campo `dibujos`
+  permanece en el schema por compatibilidad con datos existentes.
+- **`parseLTVText()`** (`index.html`): parser de LTV por texto plano sin llamadores (~60 líneas).
+  Solo se usa `parseLTVPdf`.
+- **`findLTVsForStop()`** (`index.html`): función huérfana (~5 líneas). La inyección LTV usa
+  filtro inline.
+- **`paradasHtml()` + `refreshParadas()`** (`registro.js`): ~34 líneas de código muerto.
+  `refreshParadas` buscaba un ID (`paradas-N`) que ya no existe en el DOM.
+- **`K_HORARIOS` legacy** (`registro.js`): constante y limpieza de migración ya consumida (~3 líneas).
+- **CSS canvas/dibujos** (`index.html`): `.obs-canvas`, `.obs-wrapper.pen-active`, `.dibujos-list`,
+  `.dibujo-thumb` eliminados.
+
 ### Removed
 - **Ajustes → "Libro de Horarios"**: se elimina la tarjeta con los botones
   "Actualizar (archivo .json)" y "Restaurar original". En la app unificada el

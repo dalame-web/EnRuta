@@ -12,7 +12,6 @@
   // ===== Constantes =====
   var K_TURNOS = 'rviryo_turnos_v1';
   var K_SETTINGS = 'rviryo_settings_v1';
-  var K_HORARIOS = 'rviryo_horarios_v1';
   var APP_VERSION = 'iryostudio-v2';
 
   var COMPROBACIONES = [
@@ -149,10 +148,6 @@
   function saveSettings() { save(K_SETTINGS, settings); }
 
   function loadHorarios() {
-    // El Libro de Horarios se genera siempre desde el Horario de la app
-    // (window.RV_HORARIOS). Se descarta cualquier libro propio guardado en
-    // versiones anteriores para que Registro y Horario nunca se descoordinen.
-    try { localStorage.removeItem(K_HORARIOS); } catch (e) {}
     horarios = (window.RV_HORARIOS || []).slice();
   }
 
@@ -533,36 +528,6 @@
     return h;
   }
 
-  function paradasHtml(si, paradas) {
-    var h = '';
-    paradas.forEach(function (p, pi) {
-      var b = 'srv.' + si + '.par.' + pi + '.';
-      h += '<div class="parada">' +
-        '<div class="parada-top">' +
-        '<input type="text" class="pnombre" placeholder="Estación" data-bind="' + b + 'nombre" value="' + esc(p.nombre) + '">' +
-        '<input type="time" class="phora" data-bind="' + b + 'hora" value="' + esc(p.hora) + '">' +
-        '<button class="x" data-action="del-parada" data-svc="' + si + '" data-par="' + pi + '">×</button>' +
-        '</div>' +
-        '<div class="parada-ret">' +
-        '<div><label>Retraso llegada (min)</label>' +
-        '<input type="text" inputmode="numeric" placeholder="ej. +5" data-bind="' + b + 'rLleg" value="' + esc(p.rLleg) + '"></div>' +
-        '<div><label>Retraso salida (min)</label>' +
-        '<input type="text" inputmode="numeric" placeholder="ej. +5" data-bind="' + b + 'rSal" value="' + esc(p.rSal) + '"></div>' +
-        '</div>' +
-        '<div class="parada-pax">' +
-        '<div><label>Viajeros</label>' +
-        '<input type="number" inputmode="numeric" data-bind="' + b + 'viajeros" value="' + esc(p.viajeros) + '"></div>' +
-        '<div><label>Asistencias</label>' +
-        '<input type="number" inputmode="numeric" data-bind="' + b + 'asistencias" value="' + esc(p.asistencias) + '"></div>' +
-        '<div><label>Plazas H</label>' +
-        '<input type="number" inputmode="numeric" data-bind="' + b + 'plazasH" value="' + esc(p.plazasH) + '"></div>' +
-        '</div></div>';
-    });
-    h += '<button class="btn ghost" data-action="add-parada" data-svc="' + si +
-      '" style="font-size:13px;padding:8px 12px;min-height:38px">+ Añadir parada</button>';
-    return h;
-  }
-
   // Estado del editor inline de retraso (sólo uno activo a la vez).
   var activeRetBind = null;
 
@@ -818,22 +783,11 @@
     });
     h += '</div>';
 
-    // Observaciones con canvas overlay
     h += '<div class="field" style="margin-top:12px">' +
       '<label style="color:#a371f7">Observaciones durante el trayecto</label>' +
       '<div class="obs-wrapper" data-svc="' + si + '">' +
       '<textarea data-bind="srv.' + si + '.observaciones">' + esc(s.observaciones) + '</textarea>' +
-      '<canvas class="obs-canvas"></canvas>' +
       '</div>';
-    if (s.dibujos && s.dibujos.length) {
-      h += '<div class="dibujos-list">';
-      s.dibujos.forEach(function (d, di) {
-        h += '<div class="dibujo-thumb" data-action="del-dibujo" ' +
-          'data-svc="' + si + '" data-dib="' + di + '" title="Quitar dibujo">' +
-          '<img src="' + esc(d) + '"></div>';
-      });
-      h += '</div>';
-    }
     h += '<div class="obs-actions">' +
       '<button class="btn ghost" data-action="dictar" data-svc="' + si + '">🎤 Dictar</button>' +
       '</div>';
@@ -902,11 +856,6 @@
     var t = getTurno(editId);
     var card = $('svc-card-' + si);
     if (t && card) card.innerHTML = servicioInner(t, si);
-  }
-  function refreshParadas(si) {
-    var t = getTurno(editId);
-    var box = $('paradas-' + si);
-    if (t && box) box.innerHTML = paradasHtml(si, t.servicios[si].paradas);
   }
 
   function applyBind(bind, value) {
@@ -1630,13 +1579,6 @@
       }
       autosave(); renderEditor(); return;
     }
-    if (act === 'del-dibujo' && t) {
-      if (!confirm('¿Quitar este dibujo?')) return;
-      var dsi2 = +el.getAttribute('data-svc');
-      var di = +el.getAttribute('data-dib');
-      t.servicios[dsi2].dibujos.splice(di, 1);
-      autosave(); renderEditor(); return;
-    }
     if (act === 'ret-edit') {
       activeRetBind = el.getAttribute('data-ret-bind');
       renderEditor();
@@ -1766,56 +1708,6 @@
     document.addEventListener('input', onInput);
     document.addEventListener('change', onChange);
     document.addEventListener('click', onClick);
-
-    // Lápiz (S Pen) en Observaciones: pointerType='pen' activa canvas overlay.
-    document.addEventListener('pointerdown', function (e) {
-      var wrapper = e.target.closest && e.target.closest('.obs-wrapper');
-      if (!wrapper) return;
-      if (e.pointerType !== 'pen') return;
-      var canvas = wrapper.querySelector('.obs-canvas');
-      if (!canvas) return;
-      e.preventDefault();
-      var rect = wrapper.getBoundingClientRect();
-      canvas.width = rect.width;
-      canvas.height = rect.height;
-      wrapper.classList.add('pen-active');
-      var ctx = canvas.getContext('2d');
-      ctx.strokeStyle = settings.theme === 'light' ? '#0d1117' : '#e6edf3';
-      ctx.lineWidth = 2.5;
-      ctx.lineCap = 'round';
-      ctx.lineJoin = 'round';
-      var lastX = e.offsetX, lastY = e.offsetY;
-      try { canvas.setPointerCapture(e.pointerId); } catch (er) {}
-      function move(ev) {
-        ev.preventDefault();
-        ctx.beginPath();
-        ctx.moveTo(lastX, lastY);
-        ctx.lineTo(ev.offsetX, ev.offsetY);
-        ctx.stroke();
-        lastX = ev.offsetX; lastY = ev.offsetY;
-      }
-      function end() {
-        canvas.removeEventListener('pointermove', move);
-        canvas.removeEventListener('pointerup', end);
-        canvas.removeEventListener('pointercancel', end);
-        try {
-          var dataUrl = canvas.toDataURL('image/png');
-          var si = +wrapper.getAttribute('data-svc');
-          var t = getTurno(editId);
-          if (t && t.servicios[si]) {
-            if (!t.servicios[si].dibujos) t.servicios[si].dibujos = [];
-            t.servicios[si].dibujos.push(dataUrl);
-            autosave();
-          }
-        } catch (er) { /* canvas tainted u otra causa */ }
-        ctx.clearRect(0, 0, canvas.width, canvas.height);
-        wrapper.classList.remove('pen-active');
-        renderEditor();
-      }
-      canvas.addEventListener('pointermove', move);
-      canvas.addEventListener('pointerup', end);
-      canvas.addEventListener('pointercancel', end);
-    }, true);
 
     // Editor inline de retraso: Enter o blur guardan; Escape cancela.
     function commitRet(inp) {
