@@ -160,6 +160,9 @@
 
   function loadHorarios() {
     horarios = (window.RV_HORARIOS || []).slice();
+    horarios.sort(function (a, b) {
+      return (parseInt(a.servicio, 10) || 0) - (parseInt(b.servicio, 10) || 0);
+    });
   }
 
   // ===== Modelo =====
@@ -608,32 +611,30 @@
     if (cfg.horaLlegada || cfg.editLlegada) {
       var retLlegMin = parseRetraso(cfg.valRetLleg);
       var horaRealLleg = (cfg.horaLlegada && retLlegMin) ? addMinutos(cfg.horaLlegada, retLlegMin) : '';
-      h += '<div class="st-row">' +
-        '<span class="st-lbl">H. Llegada</span>';
+      h += '<div class="st-row"><span class="st-lbl">H. Llegada</span>' +
+        '<div class="st-time-col">';
       if (cfg.editLlegada) {
         h += '<input type="time" data-bind="' + cfg.bindHoraLlegada + '" value="' +
           esc(cfg.horaLlegada || '') + '">';
       } else {
         h += '<span class="st-h">' + esc(cfg.horaLlegada) + '</span>';
       }
-      h += retInlineHtml(cfg.bindRetLleg, cfg.valRetLleg);
       if (horaRealLleg) h += '<span class="st-real">' + horaRealLleg + '</span>';
-      h += '</div>';
+      h += '</div>' + retInlineHtml(cfg.bindRetLleg, cfg.valRetLleg) + '</div>';
     }
     if (cfg.horaSalida || cfg.editSalida) {
       var retSalMin = parseRetraso(cfg.valRetSal);
       var horaRealSal = (cfg.horaSalida && retSalMin) ? addMinutos(cfg.horaSalida, retSalMin) : '';
-      h += '<div class="st-row">' +
-        '<span class="st-lbl">H. Salida</span>';
+      h += '<div class="st-row"><span class="st-lbl">H. Salida</span>' +
+        '<div class="st-time-col">';
       if (cfg.editSalida) {
         h += '<input type="time" data-bind="' + cfg.bindHoraSalida + '" value="' +
           esc(cfg.horaSalida || '') + '">';
       } else {
         h += '<span class="st-h">' + esc(cfg.horaSalida) + '</span>';
       }
-      h += retInlineHtml(cfg.bindRetSal, cfg.valRetSal);
       if (horaRealSal) h += '<span class="st-real">' + horaRealSal + '</span>';
-      h += '</div>';
+      h += '</div>' + retInlineHtml(cfg.bindRetSal, cfg.valRetSal) + '</div>';
     }
     h += '</div>';
     if (cfg.pax) h += '<div class="st-pax">' + cfg.pax + '</div>';
@@ -711,8 +712,6 @@
         editable: nuevaSinDatos,
         pmrBaja: hasPmrInt,
         horaLlegada: hLlegParada,
-        editLlegada: true,
-        bindHoraLlegada: 'srv.' + si + '.par.' + pi + '.hLleg',
         horaSalida: p.hora,
         editSalida: !p.hora,
         bindHoraSalida: 'srv.' + si + '.par.' + pi + '.hora',
