@@ -8,6 +8,21 @@ y este proyecto sigue [SemVer](https://semver.org/lang/es/).
 
 ## [iryostudio-v3]
 
+### Fixed (2026-06-19 — ronda 2)
+- **Formato de retraso ilegible** (`registro.js` `fmtRetraso`): valores ≥ 60 min
+  ahora muestran `+1h 05m` en lugar de `+65m`.
+- **Hora real no visible tras introducir retraso** (`registro.js` `stationCard`):
+  al añadir un retraso en origen, parada o destino, aparece la hora real calculada
+  (`oficial + retraso`) en naranja junto al botón de retraso.
+- **Paradas intermedias sin hora de llegada** (`registro.js` `stationsBlock`):
+  el campo "H. Llegada" es ahora editable en todas las paradas comerciales.
+  Al autocompletar desde el Libro de Horarios, la hora llegada se precalcula si
+  `tParada > 0`. Se añade campo `hLleg` al modelo de parada (migración automática).
+- **Descarga automática inesperada al cerrar turno** (`registro.js`): eliminada
+  la llamada a `exportBackup()` en la acción `cerrar`. La exportación manual desde
+  Ajustes sigue funcionando igual. El checkbox "Descargar copia automática" en
+  Ajustes queda visible pero sin efecto (se puede ocultar en próxima limpieza).
+
 ### Changed
 - **Versión de app**: `iryostudio-v2` → `iryostudio-v3` (`registro.js` `APP_VERSION`
   e `index.html` `STUDIO_VER`, visible en pantalla de inicio y en Ajustes).

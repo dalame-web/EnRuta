@@ -92,7 +92,10 @@
   }
   function fmtRetraso(min) {
     if (min == null || !isFinite(min)) return '';
-    return (min >= 0 ? '+' : '') + min + 'm';
+    var abs = Math.abs(min);
+    var sign = min >= 0 ? '+' : '-';
+    if (abs >= 60) return sign + Math.floor(abs / 60) + 'h ' + pad2(abs % 60) + 'm';
+    return sign + abs + 'm';
   }
   // True si el servicio aún no ha llegado a destino (hDestino > hora actual).
   function servicioEnCurso(s) {
@@ -102,6 +105,14 @@
     var dest = new Date();
     dest.setHours(+parts[0], +parts[1], 0, 0);
     return new Date() < dest;
+  }
+  // Suma minutos a una hora 'HH:MM' → 'HH:MM' (con wrap 24h).
+  function addMinutos(hora, min) {
+    if (!/^\d{1,2}:\d{2}$/.test(hora || '') || !isFinite(min)) return '';
+    var p = hora.split(':');
+    var t = (+p[0]) * 60 + (+p[1]) + min;
+    t = ((t % 1440) + 1440) % 1440;
+    return pad2(Math.floor(t / 60)) + ':' + pad2(t % 60);
   }
   // Resta minutos a una hora 'HH:MM' → 'HH:MM' (con wrap 24h).
   function subMinutos(hora, min) {
@@ -165,7 +176,7 @@
   }
   function blankParada() {
     return {
-      nombre: '', hora: '', tParada: 0, rLleg: '', rSal: '',
+      nombre: '', hLleg: '', hora: '', tParada: 0, rLleg: '', rSal: '',
       viajeros: '', asistencias: ''
     };
   }
@@ -194,6 +205,7 @@
       if (!s.paradas) s.paradas = [];
       s.paradas.forEach(function (p) {
         if (p.tParada == null) p.tParada = 0;
+        if (p.hLleg == null) p.hLleg = '';
         if (p.rLleg == null) p.rLleg = '';
         if (p.rSal == null) p.rSal = '';
         if (p.viajeros == null) p.viajeros = '';
@@ -594,6 +606,8 @@
     h += '<div class="st-body">';
     h += '<div class="st-times">';
     if (cfg.horaLlegada || cfg.editLlegada) {
+      var retLlegMin = parseRetraso(cfg.valRetLleg);
+      var horaRealLleg = (cfg.horaLlegada && retLlegMin) ? addMinutos(cfg.horaLlegada, retLlegMin) : '';
       h += '<div class="st-row">' +
         '<span class="st-lbl">H. Llegada</span>';
       if (cfg.editLlegada) {
@@ -602,9 +616,13 @@
       } else {
         h += '<span class="st-h">' + esc(cfg.horaLlegada) + '</span>';
       }
-      h += retInlineHtml(cfg.bindRetLleg, cfg.valRetLleg) + '</div>';
+      h += retInlineHtml(cfg.bindRetLleg, cfg.valRetLleg);
+      if (horaRealLleg) h += '<span class="st-real">' + horaRealLleg + '</span>';
+      h += '</div>';
     }
     if (cfg.horaSalida || cfg.editSalida) {
+      var retSalMin = parseRetraso(cfg.valRetSal);
+      var horaRealSal = (cfg.horaSalida && retSalMin) ? addMinutos(cfg.horaSalida, retSalMin) : '';
       h += '<div class="st-row">' +
         '<span class="st-lbl">H. Salida</span>';
       if (cfg.editSalida) {
@@ -613,7 +631,9 @@
       } else {
         h += '<span class="st-h">' + esc(cfg.horaSalida) + '</span>';
       }
-      h += retInlineHtml(cfg.bindRetSal, cfg.valRetSal) + '</div>';
+      h += retInlineHtml(cfg.bindRetSal, cfg.valRetSal);
+      if (horaRealSal) h += '<span class="st-real">' + horaRealSal + '</span>';
+      h += '</div>';
     }
     h += '</div>';
     if (cfg.pax) h += '<div class="st-pax">' + cfg.pax + '</div>';
@@ -684,12 +704,15 @@
       var hasPmrInt = (s.pmr || []).some(function (pr) {
         return pr.baja && p.nombre && normName(pr.baja) === normName(p.nombre);
       });
+      var hLlegParada = p.hLleg || (p.tParada > 0 ? subMinutos(p.hora, p.tParada) : '');
       h += stationCard('intermediate', si, {
         nombre: p.nombre,
         parIdx: pi,
         editable: nuevaSinDatos,
         pmrBaja: hasPmrInt,
-        horaLlegada: p.tParada > 0 ? subMinutos(p.hora, p.tParada) : '',
+        horaLlegada: hLlegParada,
+        editLlegada: true,
+        bindHoraLlegada: 'srv.' + si + '.par.' + pi + '.hLleg',
         horaSalida: p.hora,
         editSalida: !p.hora,
         bindHoraSalida: 'srv.' + si + '.par.' + pi + '.hora',
@@ -983,9 +1006,12 @@
     s.hSalida = hr.hSalida || '';
     s.hDestino = hr.hDestino || '';
     s.paradas = (hr.paradas || []).map(function (p) {
+      var tP = typeof p.tParada === 'number' ? p.tParada : 0;
       return {
-        nombre: p.nombre, hora: p.hora,
-        tParada: typeof p.tParada === 'number' ? p.tParada : 0,
+        nombre: p.nombre,
+        hLleg: tP > 0 ? subMinutos(p.hora, tP) : (p.hLleg || ''),
+        hora: p.hora,
+        tParada: tP,
         rLleg: '', rSal: '',
         viajeros: '', asistencias: ''
       };
@@ -1603,7 +1629,6 @@
       save(K_TURNOS, turnos);
       renderEditor();
       flashSaved();
-      if (settings.autoDownload) exportBackup();
       return;
     }
     if (act === 'reabrir' && t) {
