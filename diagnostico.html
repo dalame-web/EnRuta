@@ -46,6 +46,18 @@
   <button onclick="copiar()">📋 Copiar informe para enviárselo a Claude</button>
   <p class="hint">Haz una captura de pantalla o pulsa el botón y pega el texto en el chat.</p>
 
+  <div class="card" id="prueba-card">
+    <div class="t">Prueba REAL (esto es lo que confirma de verdad)</div>
+    <div class="d" style="margin:6px 0 4px">
+      No basta con que la función exista. Pulsa para crear de verdad un archivo
+      en una carpeta que elijas. Luego comprueba en tu explorador de archivos que
+      aparece <b>iryo-studio-prueba.txt</b>.
+    </div>
+    <button id="btn-carpeta" style="background:#1f6feb">🗂️ Probar: elegir carpeta y crear archivo</button>
+    <button id="btn-guardar" style="background:#1f6feb">💾 Probar: guardar un archivo suelto</button>
+    <div id="prueba-res" class="verdict" style="display:none;border-left-color:#1f6feb;margin-top:12px"></div>
+  </div>
+
   <div class="card" style="margin-top:16px">
     <div class="t">Detalles técnicos</div>
     <pre id="raw"></pre>
@@ -139,6 +151,65 @@
       finishRaw();
     }).catch(finishRaw);
   } else { finishRaw(); }
+
+  // ===== Prueba real (funcional) =====
+  function showRes(html, ok){
+    var el = document.getElementById('prueba-res');
+    el.style.display = 'block';
+    el.style.borderLeftColor = ok ? '#2ea043' : '#f85149';
+    el.innerHTML = html;
+  }
+  var btnCarpeta = document.getElementById('btn-carpeta');
+  var btnGuardar = document.getElementById('btn-guardar');
+
+  if (!checks.dirPicker && btnCarpeta) { btnCarpeta.disabled = true; btnCarpeta.style.opacity = .4; }
+  if (!checks.savePicker && btnGuardar) { btnGuardar.disabled = true; btnGuardar.style.opacity = .4; }
+
+  if (btnCarpeta) btnCarpeta.addEventListener('click', async function(){
+    showRes('Abriendo selector de carpeta…', true);
+    try {
+      var dir = await window.showDirectoryPicker({ mode: 'readwrite' });
+      var fh = await dir.getFileHandle('iryo-studio-prueba.txt', { create: true });
+      var w = await fh.createWritable();
+      var contenido = 'Prueba Iryo Studio OK — ' + new Date().toISOString();
+      await w.write(contenido);
+      await w.close();
+      // Leer de vuelta para confirmar
+      var f = await fh.getFile();
+      var leido = await f.text();
+      var ok = (leido === contenido);
+      showRes('✅ <b>FUNCIONA DE VERDAD.</b><br>Carpeta elegida: <b>' + (dir.name||'(raíz)') +
+        '</b><br>Archivo creado y releído correctamente.<br><br>' +
+        'Ahora abre tu <b>explorador de archivos</b> y comprueba que ves ' +
+        '<b>iryo-studio-prueba.txt</b> en esa carpeta. Si lo ves → confirmado al 100%.', ok);
+    } catch(e){
+      var msg = (e && e.name === 'AbortError')
+        ? '⚠️ Cancelaste el selector. Vuelve a pulsar y elige una carpeta para probar.'
+        : '❌ <b>NO funciona:</b> ' + (e ? (e.name + ' — ' + e.message) : 'error desconocido') +
+          '<br>Es decir: la función existe pero al usarla falla en tu tablet.';
+      showRes(msg, false);
+    }
+  });
+
+  if (btnGuardar) btnGuardar.addEventListener('click', async function(){
+    showRes('Abriendo diálogo de guardar…', true);
+    try {
+      var fh = await window.showSaveFilePicker({
+        suggestedName: 'iryo-studio-prueba.json',
+        types: [{ description: 'JSON', accept: { 'application/json': ['.json'] } }]
+      });
+      var w = await fh.createWritable();
+      await w.write(JSON.stringify({ prueba: true, fecha: new Date().toISOString() }));
+      await w.close();
+      showRes('✅ <b>Guardar archivo FUNCIONA.</b><br>Comprueba en tu explorador que ' +
+        'aparece <b>' + (fh.name || 'iryo-studio-prueba.json') + '</b>.', true);
+    } catch(e){
+      var msg = (e && e.name === 'AbortError')
+        ? '⚠️ Cancelaste el diálogo. Vuelve a pulsar para probar.'
+        : '❌ <b>NO funciona:</b> ' + (e ? (e.name + ' — ' + e.message) : 'error desconocido');
+      showRes(msg, false);
+    }
+  });
 
   window.copiar = function(){
     var txt = 'INFORME IRYO STUDIO\n' + JSON.stringify(window.__informe || checks, null, 2);
