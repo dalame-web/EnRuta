@@ -6,7 +6,11 @@ archivo.
 El formato está basado en [Keep a Changelog](https://keepachangelog.com/es-ES/1.1.0/)
 y este proyecto sigue [SemVer](https://semver.org/lang/es/).
 
-## [Unreleased]
+## [iryostudio-v3]
+
+### Changed
+- **Versión de app**: `iryostudio-v2` → `iryostudio-v3` (`registro.js` `APP_VERSION`
+  e `index.html` `STUDIO_VER`, visible en pantalla de inicio y en Ajustes).
 
 ### Fixed
 - **Editar un registro de otra fecha activaba marcha en Horario** (`registro.js`
