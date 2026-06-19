@@ -992,8 +992,12 @@
     });
     autosave();
     refreshServicioCard(si);
-    window.dispatchEvent(new CustomEvent('iryo:registroServiceChanged',
-      { detail: { num: hr.servicio } }));
+    // Solo sincronizar con Horario si el servicio editado es de HOY. Editar
+    // registros de otra fecha no debe marcar una marcha activa en HT.
+    if (s.fecha === today()) {
+      window.dispatchEvent(new CustomEvent('iryo:registroServiceChanged',
+        { detail: { num: hr.servicio } }));
+    }
   }
 
   // ===== Estadísticas =====

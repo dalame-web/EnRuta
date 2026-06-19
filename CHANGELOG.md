@@ -9,6 +9,11 @@ y este proyecto sigue [SemVer](https://semver.org/lang/es/).
 ## [Unreleased]
 
 ### Fixed
+- **Editar un registro de otra fecha activaba marcha en Horario** (`registro.js`
+  `autofillServicio`): al elegir un servicio en el desplegable del Libro de
+  Horarios editando un turno de otro día, se propagaba a la pestaña Horario y se
+  marcaba como marcha "activa". Ahora el cross-feed RV→Horario solo ocurre si el
+  servicio editado es de hoy (`s.fecha === today()`).
 - **Pérdida de turnos al actualizar la app** (`ebulaClearAllData`): `localStorage.clear()` reemplazado
   por borrado selectivo con allowlist. Se preservan `rviryo_turnos_v1`, `rviryo_settings_v1`,
   `ebula_auth_v1`, `ebula_theme`, `ebula_overlay_collapsed` e `iryostudio_active_tab`.
