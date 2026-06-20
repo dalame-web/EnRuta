@@ -8,6 +8,17 @@ y este proyecto sigue [SemVer](https://semver.org/lang/es/).
 
 ## [iryostudio-v3]
 
+### Fixed (2026-06-20 — retraso en vivo en Registro)
+- **El delta del GPS no llegaba al Registro** (`index.html` `HTIryo.getStopDelays`):
+  la función solo calculaba retrasos de paradas ya picadas (marca real), nunca usaba
+  el retraso provisional en vivo (`provisionalDelay`). Ahora las paradas **aún no
+  pasadas** reflejan el delta en vivo del GPS, y las **ya pasadas** quedan congeladas
+  con su marca real (no cambian aunque el delta siga variando). Aplica a origen,
+  paradas intermedias y destino.
+- **Marca recién puesta no se leía a tiempo**: `getStopDelays` lee la marca por clave
+  de nombre (canónica) y por índice numérico (marca sin migrar aún), porque el
+  cross-feed se dispara dentro de `setMark`, antes de `migrateMarkKeys`.
+
 ### Fixed (2026-06-19 — ronda 3)
 - **Mensajes emergentes inconsistentes**: todos los `alert()` y `confirm()` nativos
   del sistema (feos, bloquean el hilo) reemplazados por el `appModal` propio de la

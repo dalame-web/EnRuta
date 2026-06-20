@@ -5305,13 +5305,29 @@ window.addEventListener('unload', ebulaClearAllData);
         }
         function fmt(d){ return d > 0 ? '+' + d : String(d); }
         var stops = march.s, last = stops.length - 1;
-        var origenDelay = diffMin(getMarkAt(0), stops[0] && stops[0].h);
-        var destDelay = diffMin(getMarkAt(last), stops[last] && stops[last].h);
+        // Retraso en vivo del GPS para paradas AÚN NO pasadas (sin marca).
+        // Las paradas ya pasadas usan su marca real → quedan congeladas.
+        var prov = (provisionalDelay != null) ? Math.round(provisionalDelay) : null;
+        // Lee la marca por ambas claves: por nombre (canónica, migrada) y por
+        // índice numérico (marca recién puesta por setMark, aún sin migrar). El
+        // cross-feed se dispara dentro de setMark, antes de migrateMarkKeys.
+        function markAt(idx){
+          var m = getMarkAt(idx);
+          if(m != null) return m;
+          return (punches[tickKey()] || {})[idx];
+        }
+        function delayFor(idx, schedH){
+          var marked = markAt(idx);
+          if(marked) return diffMin(marked, schedH); // congelado
+          return prov;                                // en vivo (o null)
+        }
+        var origenDelay = delayFor(0, stops[0] && stops[0].h);
+        var destDelay = delayFor(last, stops[last] && stops[last].h);
         var paradas = {};
         for(var i = 1; i < last; i++){
           var s = stops[i];
           if(s._l010cdi || !s.c) continue;
-          var d = diffMin(getMarkAt(i), s.h);
+          var d = delayFor(i, s.h);
           if(d != null) paradas[s.n] = { rLleg: fmt(d), rSal: fmt(d) };
         }
         return {
