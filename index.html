@@ -4662,7 +4662,8 @@ window.addEventListener('unload', ebulaClearAllData);
     // Con el seguimiento GPS activo, la posición la manda la ÚLTIMA MARCA REAL:
     // no se extrapola por reloj (la app no impone una estimación de posición).
     if(window.HTIryo && window.HTIryo.isTracking && window.HTIryo.isTracking() && lp >= 0){
-      if(provisionalDelay != null && provisionalDelay > 0){
+      // GPS-003 RC4: provisionalDelay != null bloquea icono (incluye valor 0 = en hora).
+      if(provisionalDelay != null){
         activeIdx = lp;
         prevIdx = lp;
         nextIdx = -1;
@@ -4707,20 +4708,17 @@ window.addEventListener('unload', ebulaClearAllData);
       $('position-info').textContent='';
     }
 
-    // Δ marcha: se calcula a partir de los marcajes del usuario en la columna "Real".
-    // Mejora 1: si el GPS confirma un retraso provisional mayor (tren aún sin llegar
-    // a la siguiente estación pasada su hora prevista), ese valor manda y se marca
-    // con "~" para indicar que es provisional, no una marca real.
+    // Δ marcha: GPS gana cuando disponible (adelanto O retraso).
+    // Sin provisional GPS: usa delta de marcas reales como fallback.
     let deltaSec = null;
     let provisional = false;
-    if(lp >= 0){
+    // GPS-003: provisionalDelay ya incorpora currentDelta() como base, así que
+    // cuando está disponible refleja la info más fresca (GPS > marcas por tiempo).
+    if(provisionalDelay != null){
+      deltaSec = provisionalDelay * 60;
+      provisional = true;
+    } else if(lp >= 0){
       deltaSec = delayMin * 60;
-    }
-    // G4: provisional solo sustituye al delta si representa MÁS retraso real.
-    // Antes: provSec=0 sobrescribía un delta=-120 (adelanto) y mostraba ±0:00.
-    if(provisionalDelay != null && provisionalDelay > 0){
-      const provSec = provisionalDelay * 60;
-      if(deltaSec == null || provSec > deltaSec){ deltaSec = provSec; provisional = true; }
     }
     const dEl = $('delta');
     const pfx = provisional ? '~' : '';

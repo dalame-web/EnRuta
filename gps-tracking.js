@@ -817,12 +817,20 @@
       // Distancia en línea recta ≤ distancia por vía → si hay sesgo, sobreestima
       // el adelanto: la ventana abriría algo antes de lo justo (lado seguro).
       var advance = eff - (normNow(eff) + etaMin);
+      // GPS-003 RC5: checkpoint actualiza provisionalDelay en los 3 casos
+      // (adelanto, en hora, retraso) — advance>0 = adelantado, <0 = más retraso.
+      var provDelay = currentDelta() - advance;
+      if(API.setProvisionalDelay) API.setProvisionalDelay(provDelay);
       if(advance >= 1){
         provAdvanceMin = Math.min(advance, CHECKPOINT_MAX_ADV);
         provAdvanceFor = idx;
-        logEvent('checkpoint', stName(idx) + ' — adelanto detectado −' + Math.round(provAdvanceMin) +
-                 ' min (ETA ' + fmtHM(eff - advance) + '); ventana ampliada');
-        setStatus('Adelanto detectado: −' + Math.round(provAdvanceMin) + ' min hacia ' + stName(idx), 'ok');
+        logEvent('checkpoint', stName(idx) + ' — adelanto detectado −' + Math.round(advance) +
+                 ' min (ETA ' + fmtHM(eff - advance) + '); ventana ampliada · prov=' + Math.round(provDelay) + ' min');
+        setStatus('Adelanto detectado: −' + Math.round(advance) + ' min hacia ' + stName(idx), 'ok');
+      } else if(advance < -0.5){
+        logEvent('checkpoint', stName(idx) + ' — retraso detectado +' + Math.round(-advance) +
+                 ' min (ETA ' + fmtHM(eff - advance) + ') · prov=' + Math.round(provDelay) + ' min');
+        setStatus('Retraso creciendo: +' + Math.round(-advance) + ' min hacia ' + stName(idx), 'warn');
       } else {
         logEvent('checkpoint', stName(idx) + ' — en hora (ETA ~' + fmtHM(eff - Math.max(advance, -99)) + '); ventana normal');
       }
@@ -1061,6 +1069,11 @@
         return;
       }
 
+      // GPS-003 RC1: CPA acumula durante LTV — se mueve ANTES del bloque LTV para
+      // que las lecturas de 10 km → 5 km queden en el historial. El bloque LTV
+      // sigue impidiendo marcar hasta que el tren esté a < LTV_FAR_THRESHOLD_M.
+      if(distM != null) cpaUpdateHistory(distM, pos, nowMs);
+
       // Bloque 1: mitigación parcial DHLTV. Si el tren está confirmado a >5 km
       // de la estación destino mientras la ventana ya está abierta (hora teórica
       // próxima), una LTV activa lo retrasa. Bloquear giveup y CPA hasta que se
@@ -1070,14 +1083,14 @@
           ltvWait = true;
           logEvent('ltv_wait', name + ' a ' + Math.round(distM/1000) + ' km — esperando aproximación (LTV)');
         }
+        // GPS-003 RC2: bloquear icono en última estación confirmada durante LTV.
+        if(API.setProvisionalDelay) API.setProvisionalDelay(currentDelta());
         setStatus('Tren a ' + Math.round(distM/1000) + ' km de ' + name + ' — esperando aproximación (posible LTV)', 'warn');
         return;
       } else if(ltvWait){
         ltvWait = false;
         logEvent('ltv_clear', name + ' a ' + Math.round(distM) + ' m — aproximación reanudada');
       }
-
-      if(distM != null) cpaUpdateHistory(distM, pos, nowMs);
       var cpa = (distM != null) ? cpaDetectPass() : { passed: false };
 
       if(pr.passedOrigIdx != null && pr.passedOrigIdx > gpsNextIdx){
@@ -1126,7 +1139,9 @@
           logEvent('retraso', '+' + Math.round(prov) + ' min provisional hacia ' + name, 'retraso' + Math.round(prov));
           setStatus('Retraso creciendo: +' + fmtDur(prov) + ' · sin pasar aún ' + name, 'warn');
         } else {
-          API.setProvisionalDelay(null);
+          // GPS-003 RC3: mantener lock en hora — currentDelta() en vez de null
+          // para que el icono no avance por tiempo cuando GPS sabe que aún no pasó.
+          API.setProvisionalDelay(currentDelta());
           var distInfo = distM != null ? ' · ' + Math.round(distM) + 'm' : '';
           setStatus('En ruta hacia ' + name + ' (previsto ' + fmtHM(effNow) + ')' + distInfo);
         }

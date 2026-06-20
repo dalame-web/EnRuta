@@ -3585,19 +3585,19 @@
     // intentando localizar; al lograrlo, autoMark/estimateMark fijan el paso real con
     // su retraso y lp avanza. (lp = -1, sin marcas aún: avanza por hora desde origen.)
     if(window.HTIryo && window.HTIryo.isTracking && window.HTIryo.isTracking() && lp >= 0){
-      if(provisionalDelay != null && provisionalDelay > 0){
-        // Caso 1: el GPS confirma que el tren no ha pasado la siguiente estación
-        // (p.ej. parado en señal). Se fija el icono en la última estación real y se
-        // recalcula el siguiente objetivo a partir de ahí.
+      // GPS-003 RC4: provisionalDelay != null (cualquier valor, incluido 0) significa
+      // que el GPS sabe que el tren AÚN no pasó la siguiente estación → bloquear icono.
+      // Antes era > 0, lo que dejaba pasar los trenes en hora (provisionalDelay=0).
+      if(provisionalDelay != null){
+        // GPS confirma que el tren no ha pasado la siguiente estación.
+        // Se fija el icono en la última estación real y se recalcula el siguiente objetivo.
         activeIdx = lp;
         prevIdx = lp;
         nextIdx = -1;
         for(let j=activeIdx+1;j<stops.length;j++){ if(stops[j].tm!=null){ nextIdx=j; break; } }
       }
-      // Caso 2 (sin retraso provisional): el icono avanza por tiempo con la lógica
-      // natural. prevIdx/nextIdx ya están bien calculados (no se tocan), así las
-      // estaciones entre la última marca y la posición estimada se resaltan como
-      // 'past' correctamente, sin el hueco cosmético de N1.
+      // Si provisionalDelay es null: GPS sin señal o entre estaciones → icono avanza
+      // por tiempo con la lógica natural (prevIdx/nextIdx ya calculados).
     }
 
     // Seguimiento por hora DESACTIVADO: no resaltar posición "ahora"/pasado/próximo
@@ -3640,20 +3640,17 @@
       $('position-info').textContent='';
     }
 
-    // Δ marcha: se calcula a partir de los marcajes del usuario en la columna "Real".
-    // Mejora 1: si el GPS confirma un retraso provisional mayor (tren aún sin llegar
-    // a la siguiente estación pasada su hora prevista), ese valor manda y se marca
-    // con "~" para indicar que es provisional, no una marca real.
+    // Δ marcha: GPS gana cuando disponible (adelanto O retraso).
+    // Sin provisional GPS: usa delta de marcas reales como fallback.
     let deltaSec = null;
     let provisional = false;
-    if(lp >= 0){
+    // GPS-003: provisionalDelay ya incorpora currentDelta() como base, así que
+    // cuando está disponible refleja la info más fresca (GPS > marcas por tiempo).
+    if(provisionalDelay != null){
+      deltaSec = provisionalDelay * 60;
+      provisional = true;
+    } else if(lp >= 0){
       deltaSec = delayMin * 60;
-    }
-    // G4: provisional solo sustituye al delta si representa MÁS retraso real.
-    // Antes: provSec=0 sobrescribía un delta=-120 (adelanto) y mostraba ±0:00.
-    if(provisionalDelay != null && provisionalDelay > 0){
-      const provSec = provisionalDelay * 60;
-      if(deltaSec == null || provSec > deltaSec){ deltaSec = provSec; provisional = true; }
     }
     const dEl = $('delta');
     const pfx = provisional ? '~' : '';
