@@ -1129,7 +1129,7 @@
         // no cae sobre el último vértice de la polyline). Se difiere al CPA, que
         // confirmará el mínimo en las próximas lecturas; si las lecturas mueren
         // (túnel), lo cubren la mitigación de hueco o el giveup.
-        var nH = cpaHistory.length;
+        // nH ya está declarado arriba (GPS-004); cpaHistory no cambia entre medias.
         var stillApproaching = nH >= 2 &&
           cpaHistory[nH-1].distM < cpaHistory[nH-2].distM;
         if(stillApproaching){
@@ -1137,9 +1137,17 @@
                    Math.round(distM) + ' m); esperando mínimo CPA', 'geodefer' + gpsNextIdx);
           setStatus('Llegando a ' + name + ' · ' + Math.round(distM) + ' m', 'ok');
         } else {
-          // Sin historial aprovechable (cold start dentro de la estación, primera
-          // lectura ya past): marcar con hora actual — es la mejor disponible.
-          autoMark(gpsNextIdx, false);
+          // GPS-004b: si el tren se ALEJA (ya pasó, p.ej. sale del túnel pasada la
+          // estación) backdatar a la hora real de paso = lectura − (distancia/velocidad).
+          // Reusa el flag `receding` de arriba: solo backdata con alejamiento confirmado
+          // y velocidad fiable; en otro caso (cold start dentro de estación) atMs=null →
+          // hora actual, idéntico a hoy. Aviso: si la coordenada de la estación está
+          // desplazada de la vía, distM incluye el offset perpendicular y sobreestima
+          // algo el adelanto; con el tren ya lejos el componente a lo largo de vía domina.
+          var passMs = (receding && distM != null && pos.speed && pos.speed > POLL_SPEED_MIN_MS)
+            ? nowMs - (distM / pos.speed) * 1000
+            : null;
+          autoMark(gpsNextIdx, false, passMs);
         }
       } else {
         // `eff`/`nowM` se calcularon ANTES de la llamada GPS (hasta 10 s antes);
