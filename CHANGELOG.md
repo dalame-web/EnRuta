@@ -8,6 +8,14 @@ y este proyecto sigue [SemVer](https://semver.org/lang/es/).
 
 ## [iryostudio-v3]
 
+### Changed (2026-06-20 — mejoras visuales)
+- **Sub-nav (Calendario/Estadísticas/Ajustes) más alta**: 36px → 46px con más padding
+  vertical y borde superior, para que no quede pegada ni los botones toquen el menú
+  principal. Alineada justo bajo el nav (sin solapamiento en pantallas estrechas).
+- **Icono PMR**: era una advertencia ⚠ pequeña; ahora es el símbolo de silla de
+  ruedas ♿ a 26px en color de acento. Más visible y reconocible.
+- **Teléfono de cabecera**: 13px atenuado → 16px peso 600 a color pleno.
+
 ### Fixed (2026-06-20 — retraso en vivo en Registro)
 - **El delta del GPS no llegaba al Registro** (`index.html` `HTIryo.getStopDelays`):
   la función solo calculaba retrasos de paradas ya picadas (marca real), nunca usaba

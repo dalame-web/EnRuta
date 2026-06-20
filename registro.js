@@ -589,7 +589,7 @@
         'value="' + esc(cfg.nombre || '') + '">';
     } else {
       h += '<span class="st-name">' + esc(cfg.nombre || '—');
-      if (cfg.pmrBaja) h += ' <span class="pmr-warn" title="PMR baja aquí">⚠</span>';
+      if (cfg.pmrBaja) h += ' <span class="pmr-warn" title="PMR baja aquí">♿</span>';
       h += '</span>';
     }
     // Mini "+" inserta una parada NUEVA antes de la actual.

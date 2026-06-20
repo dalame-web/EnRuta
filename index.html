@@ -1169,7 +1169,7 @@
   }
   .tel-cabecera{
     flex:1; text-align:center; align-self:center;
-    font-size:13px; color:var(--fg-dim); white-space:nowrap;
+    font-size:16px; font-weight:600; color:var(--fg); white-space:nowrap;
     overflow:hidden; text-overflow:ellipsis;
   }
   .st-body{
@@ -1332,31 +1332,23 @@
   body.tab-registro #cal-subnav{
     display:flex;position:fixed;left:0;right:0;
     top:38px;z-index:990;
-    background:var(--panel);border-bottom:1px solid var(--border);
-    height:36px;padding:0 4px;
-  }
-  @media (max-width:540px){
-    body.tab-calendario #cal-subnav,
-    body.tab-estadisticas #cal-subnav,
-    body.tab-ajustes #cal-subnav,
-    body.tab-registro #cal-subnav{top:36px}
+    background:var(--panel);border-top:1px solid var(--border);
+    border-bottom:1px solid var(--border);
+    height:46px;padding:0 4px;
   }
   body.locked #cal-subnav{display:none!important}
   .cal-sub-btn{
     flex:1;background:none;border:none;border-bottom:2px solid transparent;
     color:var(--fg-dim);font:inherit;font-size:13px;cursor:pointer;
-    padding:6px 4px;
+    padding:10px 4px;
   }
   .cal-sub-btn.active{border-bottom-color:#e8201c;color:#e8201c;font-weight:600}
 
-  /* Panes RV: padding-top para nav (38px) + sub-nav (36px) */
-  body.tab-registro,body.tab-calendario,body.tab-estadisticas,body.tab-ajustes{padding-top:74px}
-  @media (max-width:540px){
-    body.tab-registro,body.tab-calendario,body.tab-estadisticas,body.tab-ajustes{padding-top:72px}
-  }
+  /* Panes RV: padding-top para nav (38px) + sub-nav (46px) */
+  body.tab-registro,body.tab-calendario,body.tab-estadisticas,body.tab-ajustes{padding-top:84px}
 
-  /* PMR warning icon en parada */
-  .pmr-warn{color:var(--warn);font-size:18px;font-weight:700;vertical-align:middle;margin-left:6px}
+  /* PMR icon en parada (silla de ruedas) */
+  .pmr-warn{color:var(--accent);font-size:26px;font-weight:700;line-height:1;vertical-align:middle;margin-left:6px}
 
   /* Layout RV: como en RV original (main {padding:14px;max-width:880px;margin:0 auto}) */
   #registro-pane.pane.active,
@@ -6200,7 +6192,7 @@ renderLTVList();
 
 </script>
 <script src="data.js?v=202605272315"></script>
-<script src="registro.js?v=202606192100"></script>
+<script src="registro.js?v=202606201000"></script>
 <script src="app.js?v=202606191100"></script>
 <script src="app-logger.js?v=202606171200"></script>
 <script src="gps-tracking.js?v=202606171200"></script>
