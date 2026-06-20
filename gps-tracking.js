@@ -1073,12 +1073,26 @@
       // que las lecturas de 10 km → 5 km queden en el historial. El bloque LTV
       // sigue impidiendo marcar hasta que el tren esté a < LTV_FAR_THRESHOLD_M.
       if(distM != null) cpaUpdateHistory(distM, pos, nowMs);
+      var cpa = (distM != null) ? cpaDetectPass() : { passed: false };
+
+      // GPS-003: la detección de paso GANA al LTV cuando el tren YA pasó DE VERDAD.
+      // "De verdad" = se está ALEJANDO (distancia creciendo) o el CPA lo confirmó o
+      // está en un tramo posterior. Un tren adelantado cruza la estación y se aleja
+      // > umbral antes de que abra la ventana; el LTV (solo mira distancia) bloqueaba
+      // esa marca para siempre. OJO: NO basta con la geometría (passedOrigIdx ===),
+      // que con t>0.6 sobre un tramo de 2 vértices dice "pasó" estando aún a ~9 km
+      // acercándose — eso marcaría antes de tiempo. Por eso se exige "alejándose".
+      var nH = cpaHistory.length;
+      var receding = nH >= 2 && cpaHistory[nH-1].distM > cpaHistory[nH-2].distM;
+      var alreadyPassed = (pr.passedOrigIdx != null && pr.passedOrigIdx > gpsNextIdx) ||
+                          cpa.passed ||
+                          (pr.passedOrigIdx === gpsNextIdx && receding);
 
       // Bloque 1: mitigación parcial DHLTV. Si el tren está confirmado a >5 km
       // de la estación destino mientras la ventana ya está abierta (hora teórica
       // próxima), una LTV activa lo retrasa. Bloquear giveup y CPA hasta que se
       // acerque, evitando un 'est' falso con la hora teórica.
-      if(distM != null && distM > LTV_FAR_THRESHOLD_M){
+      if(!alreadyPassed && distM != null && distM > LTV_FAR_THRESHOLD_M){
         if(!ltvWait){
           ltvWait = true;
           logEvent('ltv_wait', name + ' a ' + Math.round(distM/1000) + ' km — esperando aproximación (LTV)');
@@ -1087,11 +1101,10 @@
         if(API.setProvisionalDelay) API.setProvisionalDelay(currentDelta());
         setStatus('Tren a ' + Math.round(distM/1000) + ' km de ' + name + ' — esperando aproximación (posible LTV)', 'warn');
         return;
-      } else if(ltvWait){
+      } else if(ltvWait && distM != null && distM <= LTV_FAR_THRESHOLD_M){
         ltvWait = false;
         logEvent('ltv_clear', name + ' a ' + Math.round(distM) + ' m — aproximación reanudada');
       }
-      var cpa = (distM != null) ? cpaDetectPass() : { passed: false };
 
       if(pr.passedOrigIdx != null && pr.passedOrigIdx > gpsNextIdx){
         // Salto múltiple (varias estaciones de golpe, tras túnel largo o background):
