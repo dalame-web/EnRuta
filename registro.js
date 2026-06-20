@@ -259,16 +259,21 @@
     });
   }
   // Al salir del editor, descarta el turno si quedó completamente vacío.
+  // Si el turno tiene datos, se PRESERVA editId (y el servicio expandido) para
+  // que al volver a Registro reaparezca el mismo servicio, no el primero.
   function discardEmptyEdit() {
     if (currentRec) stopDictado();
     if (editId) {
       var t = getTurno(editId);
-      if (t && t.estado !== 'cerrado' && isEmptyTurno(t)) {
+      if (!t) {
+        editId = null;
+      } else if (t.estado !== 'cerrado' && isEmptyTurno(t)) {
         turnos = turnos.filter(function (x) { return x.id !== editId; });
         save(K_TURNOS, turnos);
+        editId = null;
       }
+      // turno con datos → conservar editId y expandedSvc
     }
-    editId = null;
   }
 
   // ===== Navegación / vistas =====
@@ -918,6 +923,10 @@
   // ===== Dictado por voz (Web Speech API) =====
   var currentRec = null;
   var currentRecSvc = null;
+  // Intención del usuario: Android ignora continuous y corta por silencio a los
+  // pocos segundos (dispara onend). Mientras wantDictado siga true, reiniciamos
+  // el reconocimiento para que el dictado sea continuo hasta pulsar Detener.
+  var wantDictado = false;
   function startDictado(si) {
     var SR = window.SpeechRecognition || window.webkitSpeechRecognition;
     if (!SR) {
@@ -946,31 +955,40 @@
       }
     };
     rec.onerror = function (e) {
-      stopDictado();
+      // Silencio o aborto: no avisar ni parar — onend reiniciará si seguimos.
+      if (e.error === 'no-speech' || e.error === 'aborted') return;
       if (e.error === 'not-allowed' || e.error === 'service-not-allowed') {
+        wantDictado = false; stopDictado();
         appModal.alert({ title: 'Micrófono bloqueado', message: 'Hay que permitir el micrófono para dictar.' });
-      } else if (e.error === 'no-speech') {
-        // silencio, no avisar
       } else {
+        wantDictado = false; stopDictado();
         appModal.alert({ title: 'Error de dictado', message: 'Error de dictado: ' + e.error });
       }
     };
     rec.onend = function () {
-      if (currentRec === rec) {
-        currentRec = null; currentRecSvc = null;
-        updateDictarBtn();
+      if (currentRec !== rec) return;
+      // Android corta por silencio: reiniciar mientras el usuario siga queriendo.
+      if (wantDictado) {
+        try { rec.start(); return; }
+        catch (err) {
+          try { currentRec = null; startDictado(si); return; } catch (e2) {}
+        }
       }
+      currentRec = null; currentRecSvc = null;
+      updateDictarBtn();
     };
     try {
       rec.start();
       currentRec = rec;
       currentRecSvc = si;
+      wantDictado = true;
       updateDictarBtn();
     } catch (err) {
       // start() puede tirar InvalidStateError si ya hay sesión activa
     }
   }
   function stopDictado() {
+    wantDictado = false;
     if (currentRec) {
       try { currentRec.stop(); } catch (e) {}
       currentRec = null; currentRecSvc = null;
@@ -1878,10 +1896,11 @@
       else if (v === 'estadisticas') { renderStats(); setView('estadisticas'); }
       else if (v === 'ajustes') { renderSettings(); setView('ajustes'); }
       else if (v === 'registro') {
-        // Si no hay turno cargado en el editor, abrir el del día actual
-        // (crea uno en blanco si no existe — flujo openDay del calendario).
-        if (editId == null) openDay(today());
-        else setView('registro');
+        // Si hay turno cargado, re-renderizar el editor para mantener el
+        // servicio expandido (p.ej. el 2º si ya estaba empezado). Si no,
+        // abrir el del día actual (flujo openDay del calendario).
+        if (editId != null && getTurno(editId)) { renderEditor(); setView('registro'); }
+        else { editId = null; openDay(today()); }
       }
     },
     refreshEditor: function () {

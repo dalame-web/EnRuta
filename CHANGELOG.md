@@ -8,6 +8,17 @@ y este proyecto sigue [SemVer](https://semver.org/lang/es/).
 
 ## [iryostudio-v3]
 
+### Fixed (2026-06-20 — dictado continuo + servicio expandido)
+- **El dictado se desactivaba solo a los pocos segundos** (`registro.js` dictado):
+  Android ignora `continuous` y corta el reconocimiento por silencio. Ahora se
+  reinicia automáticamente en `onend` mientras el usuario no pulse Detener, así el
+  dictado es continuo. Los errores `no-speech`/`aborted` ya no detienen la sesión.
+- **Al volver a Registro se mostraba el servicio 1 en vez del 2º** (`registro.js`
+  `discardEmptyEdit` + `switchTo`): salir de Registro ponía `editId = null` aunque el
+  turno tuviera datos, y al volver se reabría el turno de hoy desde cero (servicio 1).
+  Ahora `editId` (y el servicio expandido) se conservan si el turno tiene datos; al
+  volver reaparece el mismo servicio que estabas editando.
+
 ### Changed (2026-06-20 — mejoras visuales)
 - **Sub-nav (Calendario/Estadísticas/Ajustes) más alta**: 36px → 46px con más padding
   vertical y borde superior, para que no quede pegada ni los botones toquen el menú
