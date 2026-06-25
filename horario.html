@@ -8,7 +8,7 @@
 <meta name="apple-mobile-web-app-title" content="HT Iryo">
 <meta name="application-name" content="HT Iryo">
 <meta name="theme-color" content="#e8201c">
-<meta name="ebula-version" content="studio-v13">
+<meta name="ebula-version" content="studio-v14">
 <link rel="manifest" href="./manifest.webmanifest">
 <link rel="icon" type="image/png" sizes="192x192" href="./icon-192.png">
 <link rel="apple-touch-icon" href="./icon-192.png">
@@ -4240,6 +4240,22 @@
         provisionalDelay = null;
         savePunches(); saveMarkSource();
         applyPunches(); updatePosition();
+        // DIAG GPS-005 (temporal): por qué la marca GPS no se ve. Registra el
+        // round-trip clave→lectura y el estado real de la celda en el DOM.
+        try{
+          if(window.AppLogger){
+            var _nk = rowMarkKey(idx);
+            var _cell = document.querySelector('#rows td.actual[data-idx="'+idx+'"]');
+            window.AppLogger.log('warn','gps','diag_setmark',{
+              idx: idx, name: (march.s[idx]||{}).n, k: (march.s[idx]||{}).k,
+              src: source||'gps', nk: _nk, tick: tickKey(),
+              readBack: getMarkAt(idx), readSrc: getMarkSrcAt(idx),
+              marchLen: march.s.length, cellFound: !!_cell,
+              cellPunched: _cell ? _cell.classList.contains('punched') : null,
+              cellHtml: _cell ? _cell.innerHTML.slice(0,45) : null
+            });
+          }
+        }catch(e){}
       },
       onMarchaChange: function(cb){ if(typeof cb === 'function') marchaCbs.push(cb); },
       _dispatchMarchaChange: function(){ marchaCbs.forEach(function(cb){ try{ cb(); }catch(e){} }); }
@@ -4357,7 +4373,7 @@
   (function showSwVersion(){
     const el=$('sw-version'); if(!el) return;
     const ORIGINAL_VER = 'ebula-v82';
-    const LOC_VER      = 'loc.-V19';
+    const LOC_VER      = 'loc.-V20';
     el.innerHTML = '<span class="ver-orig">' + ORIGINAL_VER + '</span>' +
                    '<br><span class="ver-loc">' + LOC_VER + '</span>';
   })();
