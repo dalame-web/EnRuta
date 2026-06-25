@@ -42,6 +42,8 @@
   var POLL_LEAD_S       = 15;       // anticipación de la fórmula: (dist/v) - 15 s
   var POLL_SPEED_MIN_MS = 0.5;      // si la velocidad reportada es < 0.5 m/s (≈ parado), fallback fijo
   var LTV_FAR_THRESHOLD_M = 5000;   // primera lectura > 5 km al abrir ventana → mitigación DHLTV
+  var RELOC_RECEDE_MIN_M  = 400;    // FIX1: subida total de distancia en 3 lecturas para confirmar "alejándose / ya pasó"
+  var RELOC_BACKDATE_MAX_M= 10000;  // FIX1: por encima de esta distancia, no backdatar por GPS; dejar la estimación por tiempo
 
   // ---- Parámetros detector de parado (Bloque 4) ----
   var STOP_SPEED_MAX_MS         = 0.83;        // ≈ 3 km/h: por debajo cuenta como "lectura lenta"
@@ -747,7 +749,12 @@
       return;
     }
     var m = API.getMarch();
-    var eff = m.s[idx].tm + currentDelta();
+    // FIX1 (regla global de estimación, dueño 26-06): el retraso de la marca estimada es el MÁS
+    // ACTUAL conocido (última marca real/est/manual vía currentDelta) MÁS lo crecido por tiempo
+    // hasta ahora — nunca el delta crudo (que vale 0 sin marcas y marcaría a hora teórica aunque
+    // vayas tarde). Misma fórmula que el retraso provisional y el contador de parado (LOC-012).
+    var base = m.s[idx].tm + currentDelta();
+    var eff = base + Math.max(0, normNow(base) - base);
     var hhmm = fmtHM(eff);
     API.setMark(idx, hhmm, 'est');
     logEvent('paso', stName(idx) + ' ' + hhmm + ' · estimada (sin GPS)');
@@ -1088,11 +1095,25 @@
                           cpa.passed ||
                           (pr.passedOrigIdx === gpsNextIdx && receding);
 
+      // FIX1-ANTIATASCO: "ya pasó por alejamiento". La geometría dice que AÚN no llegas
+      // (passedOrigIdx < gpsNextIdx, p.ej. el nudo Córdoba-Alcolea donde projectGps se pierde)
+      // PERO la distancia a la estación sube de forma SOSTENIDA (3 lecturas, +RELOC_RECEDE_MIN_M):
+      // el tren ya pasó. Sin esto, el LTV espera para siempre una aproximación que no llega y
+      // nada se marca (atasco). Guardas: no parado/desvío y suelo confirmado (no en la 1ª lectura).
+      var stronglyReceding =
+        (pr.passedOrigIdx == null || pr.passedOrigIdx < gpsNextIdx) &&
+        !isStopped && !inDetour && floorConfirmed &&
+        nH >= 3 &&
+        cpaHistory[nH-1].distM > cpaHistory[nH-2].distM &&
+        cpaHistory[nH-2].distM > cpaHistory[nH-3].distM &&
+        (cpaHistory[nH-1].distM - cpaHistory[nH-3].distM) > RELOC_RECEDE_MIN_M;
+
       // Bloque 1: mitigación parcial DHLTV. Si el tren está confirmado a >5 km
       // de la estación destino mientras la ventana ya está abierta (hora teórica
       // próxima), una LTV activa lo retrasa. Bloquear giveup y CPA hasta que se
       // acerque, evitando un 'est' falso con la hora teórica.
-      if(!alreadyPassed && distM != null && distM > LTV_FAR_THRESHOLD_M){
+      // FIX1: NO esperar si stronglyReceding (te alejas → ya pasaste, no te acercarás).
+      if(!alreadyPassed && !stronglyReceding && distM != null && distM > LTV_FAR_THRESHOLD_M){
         if(!ltvWait){
           ltvWait = true;
           logEvent('ltv_wait', name + ' a ' + Math.round(distM/1000) + ' km — esperando aproximación (LTV)');
@@ -1149,6 +1170,19 @@
             : null;
           autoMark(gpsNextIdx, false, passMs);
         }
+      } else if(stronglyReceding){
+        // FIX1-ANTIATASCO: el tren se aleja claramente del objetivo aunque la geometría no lo
+        // confirme → ya pasó. Marcar (GPS backdatada si la distancia es razonable; si es enorme,
+        // dejar que catchUp lo estime por tiempo) y ponerse al día con las que quedaron atrás.
+        ltvWait = false;
+        if(distM != null && distM < RELOC_BACKDATE_MAX_M && pos.speed && pos.speed > POLL_SPEED_MIN_MS){
+          var relocMs = nowMs - (distM / pos.speed) * 1000;
+          logEvent('reubicar', name + ' — alejándose (' + Math.round(distM/1000) + ' km, sube); marca GPS reubicada', 'reub' + gpsNextIdx);
+          autoMark(gpsNextIdx, false, relocMs);
+        } else {
+          logEvent('reubicar', name + ' — alejándose (' + Math.round(distM/1000) + ' km); estimando y poniéndose al día', 'reub' + gpsNextIdx);
+        }
+        catchUp();   // marca por tiempo (est) las estaciones ya vencidas que quedaron atrás
       } else {
         // `eff`/`nowM` se calcularon ANTES de la llamada GPS (hasta 10 s antes);
         // recalcular aquí para que el retraso provisional no arrastre ese desfase.
