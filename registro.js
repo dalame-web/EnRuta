@@ -12,7 +12,7 @@
   // ===== Constantes =====
   var K_TURNOS = 'rviryo_turnos_v1';
   var K_SETTINGS = 'rviryo_settings_v1';
-  var APP_VERSION = 'iryostudio-v3';
+  var APP_VERSION = 'iryostudio-v4';
 
   var COMPROBACIONES = [
     'Arranque rama', 'Estado Pantógrafo', 'DAT/DHLTV', 'ASFA', 'ETCS/LZB',
