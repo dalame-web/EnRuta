@@ -616,11 +616,64 @@ function analyzeLog(entries){
   });
 
   const startTs = trackingStart ? new Date(trackingStart.ts).getTime() : null;
-  const stopTs  = trackingStop  ? new Date(trackingStop.ts).getTime()  : null;
+  let   stopTs  = trackingStop  ? new Date(trackingStop.ts).getTime()  : null;
+
+  // Resumen reconstruido: si el log se exportó SIN parar el seguimiento, no hay
+  // evento 'session_summary'. Lo sintetizamos desde los eventos crudos (pulses,
+  // state_change, errores, pérdidas) para que un log en curso muestre las mismas
+  // tarjetas que uno cerrado. Marcado _synthetic para poder avisarlo en la UI.
+  let effSummary = sessionSummary;
+  const lastTs = entries.length
+    ? Math.max.apply(null, entries.map(e=>new Date(e.ts).getTime()).filter(t=>!isNaN(t)))
+    : null;
+  if(!sessionSummary && startTs != null){
+    if(stopTs == null) stopTs = lastTs;   // sin parada: cerrar en el último evento
+    let total=0, gps=0, cell=0, assisted=0, accMin=null, accMax=null;
+    pulses.forEach(p=>{
+      const dd=p.data||{}, ft=dd.fix_types||{};
+      total += dd.n || 0;
+      gps += ft.gps||0; cell += ft.cell||0; assisted += ft.assisted||0;
+      const a=dd.accuracy_m||{};
+      if(a.min!=null) accMin = accMin==null ? a.min : Math.min(accMin,a.min);
+      if(a.max!=null) accMax = accMax==null ? a.max : Math.max(accMax,a.max);
+    });
+    // Tiempo por estado: cada state_change aporta elapsed_s al estado de origen.
+    const tis={};
+    stateChanges.forEach(sc=>{
+      const f=sc.data&&sc.data.from, el=sc.data&&sc.data.elapsed_s;
+      if(f && el) tis[f]=(tis[f]||0)+el;
+    });
+    // Cola: el estado actual (último 'to') sigue abierto hasta el último evento.
+    const lastSc=stateChanges[stateChanges.length-1];
+    if(lastSc && lastSc.data && lastSc.data.to && lastTs!=null){
+      const tail=(lastTs-new Date(lastSc.ts).getTime())/1000;
+      if(tail>0) tis[lastSc.data.to]=(tis[lastSc.data.to]||0)+tail;
+    }
+    // Pérdida de señal total: emparejada (lost→recovered) o hasta el último evento.
+    let lostTotal=0;
+    lostPairs.forEach(p=>{
+      const l=new Date(p.lost.ts).getTime();
+      const r=p.recovered?new Date(p.recovered.ts).getTime():lastTs;
+      if(r!=null && r>l) lostTotal+=(r-l)/1000;
+    });
+    effSummary = { _synthetic:true, ts:new Date(lastTs).toISOString(), data:{
+      _synthetic:true,
+      total_fixes: total, gps_fixes: gps, cell_fixes: cell, assisted_fixes: assisted,
+      tracking_duration_s: startTs!=null && stopTs!=null ? (stopTs-startTs)/1000 : null,
+      time_in_state_s: tis,
+      ttff_s: ttff && ttff.data ? ttff.data.ttff_s : null,
+      signal_lost_count: lostPairs.length,
+      signal_lost_total_s: Math.round(lostTotal),
+      accuracy_m: { min: accMin, max: accMax },
+      errors: gpsErrors.length,
+      zombie_calls: zombieCalls.length,
+      quota_exceeded: false
+    }};
+  }
 
   return {
     all:entries, session:one('sesion','inicio'),
-    trackingStart, trackingStop, sessionSummary, trackingRoute, ttff,
+    trackingStart, trackingStop, sessionSummary:effSummary, trackingRoute, ttff,
     stateChanges, marks, pulses, lectures, gpsErrors, zombieCalls,
     gpsInternal, lifecycle, userActions, alerts, lostPairs,
     startTs, stopTs
@@ -701,11 +754,11 @@ function renderServiceHeader(d){
       <div class="svc-meta">
         <span>🚄 ${esc(ts&&ts.t||'—')}</span>
         <span>📅 ${d.trackingStart?esc(fmtDate(d.trackingStart.ts)):'—'}</span>
-        <span>🕐 ${esc(fmtTs(d.trackingStart&&d.trackingStart.ts))} – ${esc(fmtTs(d.trackingStop&&d.trackingStop.ts))}</span>
+        <span>🕐 ${esc(fmtTs(d.trackingStart&&d.trackingStart.ts))} – ${d.trackingStop?esc(fmtTs(d.trackingStop.ts)):'<i>en curso</i>'}</span>
         <span>⏱ ${esc(fmtDur(ss&&ss.tracking_duration_s))}</span>
         <span>📱 ${esc(ses&&ses.swVersion||'—')}</span>
       </div>
-      <div class="svc-quality" style="color:${q.color}">${q.icon} ${esc(q.label)}</div>
+      <div class="svc-quality" style="color:${q.color}">${q.icon} ${esc(q.label)}${ss&&ss._synthetic?' · <span style="color:#e3b341">estimado (sesión sin cerrar)</span>':''}</div>
     </div>`;
 }
 
