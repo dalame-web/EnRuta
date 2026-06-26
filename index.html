@@ -5273,14 +5273,16 @@ window.addEventListener('unload', ebulaClearAllData);
         updatePosition();
         try { window.dispatchEvent(new CustomEvent('iryo:htDelaysChanged')); } catch(e){}
       },
-      getMark: function(idx){ return (punches[tickKey()]||{})[idx]; },
-      getMarkSource: function(idx){ return (markSource[tickKey()]||{})[idx]; },
+      getMark: function(idx){ const nk=rowMarkKey(idx); return nk?(punches[tickKey()]||{})[nk]:undefined; },
+      getMarkSource: function(idx){ const nk=rowMarkKey(idx); return nk?(markSource[tickKey()]||{})[nk]:undefined; },
       setMark: function(idx, hhmm, source){
         const k = tickKey();
         if(!punches[k]) punches[k] = {};
         if(!markSource[k]) markSource[k] = {};
-        punches[k][idx] = hhmm;
-        markSource[k][idx] = source || 'gps';
+        const nk = rowMarkKey(idx);
+        if(!nk) return;
+        punches[k][nk] = hhmm;
+        markSource[k][nk] = source || 'gps';
         provisionalDelay = null;
         savePunches(); saveMarkSource();
         applyPunches(); updatePosition();
