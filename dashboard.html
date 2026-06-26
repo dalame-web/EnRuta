@@ -1,0 +1,1259 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>HT Iryo · Visor de Logs</title>
+<link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" crossorigin="">
+<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js" crossorigin=""></script>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Poppins:wght@400;500;600;700;800&family=JetBrains+Mono:wght@500;600;700&display=swap">
+<style>
+:root{
+  --bg:#0d1117;--panel:#161b22;--panel2:#1f242c;--border:#30363d;
+  --fg:#e6edf3;--fg-dim:#9ba3ad;--accent:#58a6ff;
+  --ok:#3fb950;--warn:#f0883e;--bad:#f85149;--kbd:#21262d;
+  --c-gps:#3fb950;--c-assisted:#58a6ff;--c-cell:#f0883e;
+  --c-lost:#f85149;--c-seeking:#e3b341;--c-stopped:#6e7681;--c-pre:#bc8cff;
+  --sidebar:260px;
+}
+*{box-sizing:border-box;margin:0;padding:0}
+body{background:var(--bg);color:var(--fg);font-family:'Poppins',sans-serif;font-size:13px;height:100vh;overflow:hidden}
+
+/* PIN */
+#pin-overlay{position:fixed;inset:0;z-index:9999;display:flex;align-items:center;justify-content:center;
+  background:#000 url('https://iryo.eu/sites/default/files/styles/wide/public/image/footer/conectividad-sostenible/alta%20velocidad%20iryo.jpg') center/cover no-repeat}
+.pin-card{background:rgba(0,0,0,.6);border:1px solid rgba(255,255,255,.1);border-radius:14px;
+  padding:32px 36px;min-width:320px;text-align:center;backdrop-filter:blur(8px)}
+.pin-card h1{font-size:42px;font-weight:800;letter-spacing:-1px;
+  background:linear-gradient(135deg,#ff3a35,#e8201c);-webkit-background-clip:text;
+  background-clip:text;-webkit-text-fill-color:transparent}
+.pin-sub{color:rgba(255,255,255,.7);font-size:12px;margin:6px 0 20px;font-weight:500}
+.pin-card input{width:100%;padding:10px 12px;font-size:18px;text-align:center;
+  background:rgba(255,255,255,.1);color:#fff;border:1px solid rgba(255,255,255,.2);
+  border-radius:8px;font-family:'JetBrains Mono',monospace;letter-spacing:6px;outline:none}
+.pin-card input:focus{border-color:#e8201c;box-shadow:0 0 0 2px rgba(232,32,28,.3)}
+.pin-card button{margin-top:12px;width:100%;padding:10px;font-size:13px;font-weight:700;
+  background:linear-gradient(135deg,#ff3a35,#e8201c);color:#fff;border:0;border-radius:8px;
+  cursor:pointer;font-family:'Poppins',sans-serif;letter-spacing:1px}
+.pin-card button:hover{background:linear-gradient(135deg,#ff5550,#ff3a35)}
+#pin-error{color:#ff8a85;font-size:11px;margin-top:8px;min-height:14px;font-weight:600}
+
+/* APP SHELL */
+#app{display:flex;height:100vh}
+#sidebar{width:var(--sidebar);min-width:var(--sidebar);background:var(--panel);
+  border-right:1px solid var(--border);display:flex;flex-direction:column;overflow:hidden}
+#main{flex:1;overflow-y:auto;padding:20px}
+
+/* SIDEBAR */
+.sb-logo{padding:16px 16px 12px;font-size:13px;font-weight:700;color:var(--fg-dim);
+  border-bottom:1px solid var(--border);letter-spacing:.5px}
+.sb-logo span{color:var(--bad);font-size:16px;font-weight:800}
+
+#upload-zone{margin:12px;border:2px dashed var(--border);border-radius:8px;
+  padding:16px 12px;text-align:center;cursor:pointer;transition:border-color .2s}
+#upload-zone.drag-over{border-color:var(--accent)}
+.upload-icon{font-size:24px;margin-bottom:6px}
+.upload-text{font-size:11px;font-weight:600;color:var(--fg-dim);margin-bottom:8px}
+.upload-btn{display:inline-block;background:var(--accent);color:#fff;border:0;
+  border-radius:6px;padding:6px 12px;font-size:11px;font-weight:600;cursor:pointer;
+  font-family:'Poppins',sans-serif;margin:2px}
+.upload-btn:hover{opacity:.85}
+.btn-sec{background:var(--panel2);color:var(--fg-dim);border:1px solid var(--border);
+  border-radius:6px;padding:6px 12px;font-size:11px;font-weight:600;cursor:pointer;
+  font-family:'Poppins',sans-serif;margin:2px}
+.btn-sec:hover{color:var(--fg)}
+
+#paste-area{padding:0 12px 12px}
+#paste-area textarea{width:100%;height:80px;background:var(--kbd);border:1px solid var(--border);
+  border-radius:6px;color:var(--fg);padding:8px;font-size:10px;font-family:'JetBrains Mono',monospace;
+  resize:none;outline:none}
+.paste-btns{display:flex;gap:6px;margin-top:6px}
+.paste-btns button{flex:1;padding:6px;border-radius:6px;border:0;cursor:pointer;
+  font-size:11px;font-weight:600;font-family:'Poppins',sans-serif}
+.paste-btns .btn-ok{background:var(--accent);color:#fff}
+.paste-btns .btn-cancel{background:var(--panel2);color:var(--fg-dim);border:1px solid var(--border)}
+
+#compare-banner{margin:0 12px;background:var(--panel2);border:1px solid var(--accent);
+  border-radius:6px;padding:8px 10px;display:flex;align-items:center;gap:6px}
+#compare-banner span{flex:1;font-size:11px;color:var(--accent)}
+.btn-cmp{background:var(--accent);color:#fff;border:0;border-radius:4px;
+  padding:4px 8px;font-size:11px;font-weight:600;cursor:pointer;font-family:'Poppins',sans-serif}
+.btn-cmp:disabled{opacity:.4;cursor:default}
+.btn-clr{background:none;border:0;color:var(--fg-dim);cursor:pointer;font-size:14px;padding:2px 4px}
+
+#log-list{flex:1;overflow-y:auto;padding:4px 0}
+.log-list-empty{padding:20px 16px;text-align:center;color:var(--fg-dim);font-size:11px}
+.log-item{display:flex;align-items:center;gap:6px;padding:8px 12px;cursor:pointer;
+  border-bottom:1px solid var(--border);transition:background .15s}
+.log-item:hover{background:var(--panel2)}
+.log-item.active{background:rgba(88,166,255,.08);border-left:3px solid var(--accent)}
+.log-checkbox{accent-color:var(--accent);cursor:pointer;flex-shrink:0}
+.log-info{flex:1;min-width:0}
+.log-route{font-size:11px;font-weight:600;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.log-meta{font-size:10px;color:var(--fg-dim);margin-top:2px;
+  white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.log-del{background:none;border:0;color:var(--fg-dim);cursor:pointer;
+  padding:2px 4px;font-size:12px;flex-shrink:0;border-radius:4px}
+.log-del:hover{color:var(--bad);background:rgba(248,81,73,.1)}
+
+/* MAIN EMPTY */
+.no-log-msg{display:flex;flex-direction:column;align-items:center;justify-content:center;
+  height:60vh;gap:12px;color:var(--fg-dim)}
+.no-log-msg .nlm-icon{font-size:48px}
+.no-log-msg p{font-size:13px}
+
+/* SERVICE HEADER */
+.svc-header{background:var(--panel);border:1px solid var(--border);border-radius:10px;
+  padding:16px 20px;margin-bottom:16px}
+.svc-route{font-size:20px;font-weight:700;margin-bottom:6px}
+.svc-meta{display:flex;flex-wrap:wrap;gap:12px;color:var(--fg-dim);font-size:12px;margin-bottom:8px}
+.svc-quality{font-size:14px;font-weight:600}
+
+/* TABS */
+.tab-bar{display:flex;gap:0;border-bottom:1px solid var(--border);margin-bottom:16px}
+.tab{background:none;border:0;border-bottom:2px solid transparent;padding:8px 20px;
+  font-size:13px;font-weight:600;color:var(--fg-dim);cursor:pointer;
+  font-family:'Poppins',sans-serif;transition:color .15s}
+.tab.active{color:var(--accent);border-bottom-color:var(--accent)}
+.tab:hover{color:var(--fg)}
+
+/* SECTION */
+.section-title{font-size:13px;font-weight:700;color:var(--fg-dim);text-transform:uppercase;
+  letter-spacing:.8px;margin:20px 0 10px}
+
+/* QUALITY PANEL */
+.quality-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(180px,1fr));gap:12px;margin-bottom:4px}
+.quality-item{background:var(--panel);border:1px solid var(--border);border-radius:8px;padding:12px 14px}
+.qi-label{font-size:10px;font-weight:600;color:var(--fg-dim);text-transform:uppercase;letter-spacing:.5px;margin-bottom:6px}
+.qi-val{font-size:20px;font-weight:700;font-family:'JetBrains Mono',monospace}
+.qi-sub{font-size:11px;color:var(--fg-dim);margin-top:2px}
+.fix-bar{display:flex;height:8px;border-radius:4px;overflow:hidden;gap:1px;margin-bottom:6px}
+.fix-bar div{height:100%;min-width:1px}
+.fix-legend{display:flex;flex-wrap:wrap;gap:8px;font-size:10px;font-weight:600}
+.state-bar{display:flex;height:8px;border-radius:4px;overflow:hidden;gap:1px;margin-bottom:6px}
+.state-seg{height:100%;min-width:1px}
+.state-legend{display:flex;flex-wrap:wrap;gap:6px;font-size:10px;font-weight:600}
+
+/* STAT CARDS */
+.cards-row{display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:10px;margin-bottom:4px}
+.stat-card{background:var(--panel);border:1px solid var(--border);border-radius:8px;padding:12px 14px}
+.stat-card.bad{border-color:rgba(248,81,73,.4)}
+.sc-title{font-size:10px;font-weight:600;color:var(--fg-dim);text-transform:uppercase;letter-spacing:.5px;margin-bottom:4px}
+.sc-value{font-size:18px;font-weight:700;font-family:'JetBrains Mono',monospace;line-height:1.2}
+.sc-sub{font-size:10px;color:var(--fg-dim);margin-top:3px}
+
+/* TIMELINE */
+.timeline-wrap{background:var(--panel);border:1px solid var(--border);border-radius:8px;padding:12px 14px}
+.tl-marks-row{position:relative;height:20px;margin-bottom:2px}
+.tl-mark{position:absolute;transform:translateX(-50%);font-size:12px;cursor:default;line-height:1}
+.tl-bar{display:flex;height:20px;border-radius:4px;overflow:hidden;gap:1px}
+.tl-seg{height:100%;min-width:1px;cursor:default}
+.tl-lifecycle-row{position:relative;height:18px;margin-top:2px}
+.tl-lifecycle{position:absolute;transform:translateX(-50%);font-size:11px;cursor:default}
+.tl-labels-row{position:relative;height:16px;margin-top:4px;font-size:9px;
+  font-family:'JetBrains Mono',monospace;color:var(--fg-dim)}
+.tl-label{position:absolute;transform:translateX(-50%)}
+.tl-legend{display:flex;flex-wrap:wrap;gap:8px;font-size:10px;font-weight:600;margin-top:8px}
+
+/* STATIONS */
+.stations-list{display:flex;flex-direction:column;gap:6px}
+.station-card{background:var(--panel);border:1px solid var(--border);border-radius:8px;overflow:hidden}
+.st-header{display:flex;align-items:center;gap:8px;padding:10px 12px;cursor:pointer;
+  transition:background .15s}
+.st-header:hover{background:var(--panel2)}
+.st-num{background:var(--panel2);border-radius:50%;width:22px;height:22px;
+  display:flex;align-items:center;justify-content:center;font-size:10px;
+  font-weight:700;flex-shrink:0;font-family:'JetBrains Mono',monospace}
+.st-name{flex:1;font-size:12px;font-weight:600;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.st-time{font-size:12px;font-family:'JetBrains Mono',monospace;font-weight:600;color:var(--fg-dim);flex-shrink:0}
+.st-src{font-size:11px;font-weight:600;flex-shrink:0}
+.st-rating{font-size:11px;flex-shrink:0}
+.st-toggle{color:var(--fg-dim);font-size:10px;flex-shrink:0}
+.st-body{padding:10px 12px;border-top:1px solid var(--border);background:var(--panel2)}
+.st-details{display:flex;flex-wrap:wrap;gap:8px;font-size:11px;margin-bottom:8px}
+.st-details span{background:var(--kbd);border-radius:4px;padding:3px 7px}
+.st-lectures-title{font-size:10px;font-weight:600;color:var(--fg-dim);margin-bottom:4px;text-transform:uppercase}
+.st-pulse{font-size:11px;color:var(--fg-dim);margin-top:6px}
+.post-mark td{opacity:.7}
+
+/* SIGNAL LOST */
+.lost-card{background:var(--panel);border:1px solid rgba(248,81,73,.35);
+  border-radius:8px;padding:12px 14px;margin-bottom:8px}
+.lost-header{display:flex;align-items:center;gap:8px;margin-bottom:8px}
+.lost-icon{font-size:18px}
+.lost-label{font-size:13px;font-weight:600;flex:1}
+.lost-time{font-size:11px;font-family:'JetBrains Mono',monospace;color:var(--fg-dim)}
+.lost-details{display:flex;flex-wrap:wrap;gap:6px;font-size:11px;margin-bottom:8px}
+.lost-details span{background:var(--panel2);border-radius:4px;padding:3px 7px}
+.lost-evidence{font-size:11px;color:var(--fg-dim);margin-bottom:6px}
+.lost-recovery{font-size:12px;font-weight:600;color:var(--ok);margin-top:6px}
+.lost-recovery.bad{color:var(--warn)}
+
+/* CHIPS */
+.chip{display:inline-block;padding:2px 6px;border-radius:10px;font-size:10px;font-weight:600;
+  background:var(--panel2);border:1px solid var(--border);margin:2px}
+.chip-high{border-color:var(--bad);color:var(--bad)}
+.chip-medium{border-color:var(--warn);color:var(--warn)}
+.chip-low{border-color:var(--fg-dim);color:var(--fg-dim)}
+
+/* TABLES */
+.mini-table,.event-table{width:100%;border-collapse:collapse;font-size:11px;margin-top:4px}
+.mini-table th,.event-table th{text-align:left;padding:5px 8px;background:var(--kbd);
+  color:var(--fg-dim);font-weight:600;font-size:10px;text-transform:uppercase;letter-spacing:.4px}
+.mini-table td,.event-table td{padding:5px 8px;border-top:1px solid var(--border)}
+.mini-table tr:hover td,.event-table tr:hover td{background:rgba(255,255,255,.03)}
+
+/* MAP */
+#pane-map{display:flex;flex-direction:column;gap:10px}
+#map-layer-controls{display:flex;flex-wrap:wrap;gap:8px;background:var(--panel);
+  border:1px solid var(--border);border-radius:8px;padding:10px 14px}
+.map-layer-toggle{display:flex;align-items:center;gap:6px;font-size:12px;font-weight:500;cursor:pointer}
+.map-layer-toggle input{accent-color:var(--accent)}
+#leaflet-map{height:calc(100vh - 220px);border-radius:8px;border:1px solid var(--border)}
+
+/* COMPARISON */
+.compare-header{display:flex;align-items:center;gap:12px;margin-bottom:16px}
+.compare-header h2{font-size:16px;font-weight:700}
+.btn-back{background:var(--panel2);border:1px solid var(--border);color:var(--fg);
+  padding:6px 12px;border-radius:6px;cursor:pointer;font-size:12px;font-family:'Poppins',sans-serif}
+.compare-cols{display:grid;grid-template-columns:1fr 4px 1fr;gap:0}
+.cmp-divider{background:var(--border)}
+.cmp-col{background:var(--panel);border:1px solid var(--border);border-radius:8px;padding:16px;
+  display:flex;flex-direction:column;gap:8px;margin:0 8px}
+.cmp-col:first-child{margin-left:0}
+.cmp-col:last-child{margin-right:0}
+.cmp-route{font-size:15px;font-weight:700}
+.cmp-date{font-size:11px;color:var(--fg-dim)}
+.cmp-quality{font-size:13px;font-weight:600}
+.cmp-stat{display:flex;justify-content:space-between;align-items:center;
+  padding:5px 0;border-bottom:1px solid var(--border);font-size:12px}
+.cmp-stat label{color:var(--fg-dim)}
+.cmp-stat val{font-family:'JetBrains Mono',monospace;font-weight:600;font-size:11px}
+.cmp-marks{font-size:11px;color:var(--fg-dim);margin-top:4px;line-height:1.6}
+#compare-map{height:400px;border-radius:8px;border:1px solid var(--border);margin-top:4px}
+
+/* EMPTY */
+.empty-msg{color:var(--fg-dim);font-size:12px;padding:8px 0}
+
+/* SCROLLBAR */
+::-webkit-scrollbar{width:6px}
+::-webkit-scrollbar-track{background:transparent}
+::-webkit-scrollbar-thumb{background:var(--border);border-radius:3px}
+::-webkit-scrollbar-thumb:hover{background:var(--fg-dim)}
+
+/* RESPONSIVE */
+@media(max-width:700px){
+  #sidebar{width:200px;min-width:200px}
+  .quality-grid{grid-template-columns:1fr 1fr}
+  .compare-cols{grid-template-columns:1fr;grid-template-rows:auto auto auto}
+  .cmp-divider{height:4px;width:100%}
+}
+</style>
+</head>
+<body>
+
+<!-- PIN overlay -->
+<div id="pin-overlay">
+  <form id="pin-form" class="pin-card" autocomplete="off" novalidate>
+    <h1>HT Iryo</h1>
+    <div class="pin-sub">Visor de Logs · Acceso restringido</div>
+    <input type="text" id="pin-input" inputmode="numeric" maxlength="12"
+           placeholder="Contraseña" autofocus
+           style="-webkit-text-security:disc;text-security:disc">
+    <button type="submit">ENTRAR</button>
+    <div id="pin-error"></div>
+  </form>
+</div>
+
+<!-- App shell -->
+<div id="app" hidden>
+  <aside id="sidebar">
+    <div class="sb-logo"><span>HT</span> Iryo · Logs</div>
+
+    <div id="upload-zone">
+      <div class="upload-icon">📂</div>
+      <div class="upload-text">Arrastra un log aquí</div>
+      <label class="upload-btn">Seleccionar archivo<input type="file" id="file-input" accept=".txt,.ndjson,.log" hidden></label>
+      <button class="btn-sec" onclick="togglePaste()">Pegar NDJSON</button>
+    </div>
+
+    <div id="paste-area" hidden>
+      <textarea id="paste-input" placeholder="Pega el contenido NDJSON aquí..."></textarea>
+      <div class="paste-btns">
+        <button class="btn-ok" onclick="analyzePasted()">Analizar</button>
+        <button class="btn-cancel" onclick="togglePaste()">Cancelar</button>
+      </div>
+    </div>
+
+    <div id="compare-banner" hidden>
+      <span id="compare-count">0 seleccionados</span>
+      <button class="btn-cmp" id="compare-btn" onclick="doCompare()" disabled>Comparar</button>
+      <button class="btn-clr" onclick="clearSelection()">✕</button>
+    </div>
+
+    <div id="log-list"><div class="log-list-empty">Carga un log para empezar</div></div>
+  </aside>
+
+  <main id="main">
+    <div id="no-log-msg" class="no-log-msg">
+      <div class="nlm-icon">📊</div>
+      <p>Selecciona o carga un log para analizarlo</p>
+    </div>
+
+    <div id="log-content" hidden>
+      <div id="service-header"></div>
+      <div class="tab-bar">
+        <button class="tab active" data-tab="dashboard" onclick="switchTab('dashboard')">Dashboard</button>
+        <button class="tab" data-tab="map" onclick="switchTab('map')">Mapa</button>
+      </div>
+      <div id="pane-dashboard">
+        <div id="quality-panel"></div>
+        <div id="stats-cards"></div>
+        <div id="timeline-section"></div>
+        <div id="stations-section"></div>
+        <div id="signal-lost-section"></div>
+        <div id="accuracy-chart"></div>
+        <div id="gps-internal-section"></div>
+        <div id="user-actions-section"></div>
+        <div id="alerts-section"></div>
+      </div>
+      <div id="pane-map" hidden>
+        <div id="map-layer-controls"></div>
+        <div id="leaflet-map"></div>
+      </div>
+    </div>
+
+    <div id="compare-content" hidden></div>
+  </main>
+</div>
+
+<script>
+'use strict';
+/* ============================================================
+   CONSTANTS & STATE
+   ============================================================ */
+const DASH_PIN  = '8412';
+const DASH_KEY  = 'ebula_dash_auth';
+const DB_NAME   = 'ebula_dash_v1';
+const DB_STORE  = 'logs';
+
+const STATE_COLORS = {
+  gps:'#3fb950', assisted:'#58a6ff', cell:'#f0883e',
+  lost:'#f85149', seeking:'#e3b341', stopped_watch:'#6e7681',
+  pre_window:'#bc8cff', idle:'#21262d'
+};
+const STATE_LABELS = {
+  gps:'GPS', assisted:'Asistido', cell:'Antena',
+  lost:'Sin señal', seeking:'Buscando', stopped_watch:'Parado',
+  pre_window:'Pre-ventana', idle:'Inactivo'
+};
+const SRC_COL   = { gps:'#3fb950', est:'#e3b341', estimated:'#e3b341', manual:'#f85149' };
+const SRC_LBL   = { gps:'GPS', est:'Estimada', estimated:'Estimada', manual:'Manual' };
+const HYPO_ICON = {
+  battery_throttle:'🔋', throttle_pantalla_apagada:'📵',
+  throttle_background:'📱', perdida_cobertura_celular:'📶', receptor_sin_respuesta:'❓'
+};
+const HYPO_LBL  = {
+  battery_throttle:'Batería baja', throttle_pantalla_apagada:'Pantalla apagada',
+  throttle_background:'Segundo plano', perdida_cobertura_celular:'Sin cobertura celular',
+  receptor_sin_respuesta:'Receptor sin respuesta'
+};
+
+let db          = null;
+let currentData = null;
+let selectedIds = new Set();
+let leafletMap  = null;
+let mapLayers   = {};
+
+/* ============================================================
+   PIN AUTH
+   ============================================================ */
+(function(){
+  if(sessionStorage.getItem(DASH_KEY) === '1'){
+    document.getElementById('pin-overlay').remove();
+    show('app');
+    initDB();
+    return;
+  }
+  document.getElementById('pin-form').addEventListener('submit', function(e){
+    e.preventDefault();
+    if(document.getElementById('pin-input').value === DASH_PIN){
+      sessionStorage.setItem(DASH_KEY, '1');
+      document.getElementById('pin-overlay').remove();
+      show('app');
+      initDB();
+    } else {
+      document.getElementById('pin-error').textContent = 'Contraseña incorrecta';
+      document.getElementById('pin-input').value = '';
+    }
+  });
+})();
+
+/* ============================================================
+   INDEXEDDB
+   ============================================================ */
+function initDB(){
+  const req = indexedDB.open(DB_NAME, 1);
+  req.onupgradeneeded = function(e){
+    const d = e.target.result;
+    if(!d.objectStoreNames.contains(DB_STORE)){
+      const s = d.createObjectStore(DB_STORE, { keyPath:'id', autoIncrement:true });
+      s.createIndex('saved_at','saved_at');
+    }
+  };
+  req.onsuccess = function(e){ db = e.target.result; refreshList(); };
+  req.onerror   = function(){ console.error('IndexedDB error'); };
+}
+
+function dbRun(mode, fn){
+  return new Promise((res,rej)=>{
+    const tx    = db.transaction(DB_STORE, mode);
+    const store = tx.objectStore(DB_STORE);
+    const req   = fn(store);
+    req.onsuccess = ()=>res(req.result);
+    req.onerror   = ()=>rej(req.error);
+  });
+}
+
+async function dbSave(meta, ndjson){
+  return dbRun('readwrite', s => s.add({ ...meta, ndjson_text:ndjson, saved_at:Date.now() }));
+}
+async function dbAll(){
+  return new Promise((res,rej)=>{
+    const tx  = db.transaction(DB_STORE,'readonly');
+    const req = tx.objectStore(DB_STORE).index('saved_at').getAll();
+    req.onsuccess = ()=>res(req.result.reverse());
+    req.onerror   = ()=>rej(req.error);
+  });
+}
+async function dbGet(id) { return dbRun('readonly',  s => s.get(id)); }
+async function dbDel(id) { return dbRun('readwrite', s => s.delete(id)); }
+
+/* ============================================================
+   FILE / PASTE LOADING
+   ============================================================ */
+const uploadZone = document.getElementById('upload-zone');
+uploadZone.addEventListener('dragover',  e=>{ e.preventDefault(); uploadZone.classList.add('drag-over'); });
+uploadZone.addEventListener('dragleave', ()=>uploadZone.classList.remove('drag-over'));
+uploadZone.addEventListener('drop', e=>{
+  e.preventDefault(); uploadZone.classList.remove('drag-over');
+  const f = e.dataTransfer.files[0];
+  if(f) readFile(f);
+});
+document.getElementById('file-input').addEventListener('change', function(){
+  if(this.files[0]) readFile(this.files[0]);
+});
+
+function readFile(file){
+  const r = new FileReader();
+  r.onload = e => processNdjson(e.target.result);
+  r.readAsText(file,'UTF-8');
+}
+
+function togglePaste(){
+  const pa = document.getElementById('paste-area');
+  pa.hidden = !pa.hidden;
+  if(!pa.hidden) document.getElementById('paste-input').focus();
+}
+
+function analyzePasted(){
+  const text = document.getElementById('paste-input').value.trim();
+  if(!text) return;
+  processNdjson(text);
+  document.getElementById('paste-area').hidden = true;
+  document.getElementById('paste-input').value = '';
+}
+
+function parseNdjsonSafe(text){
+  const entries = [];
+  const lines = text.trim().split('\n');
+  for(const line of lines){
+    const t = line.trim();
+    if(!t) continue;
+    try { entries.push(JSON.parse(t)); } catch(e){ /* línea incompleta o corrupta */ }
+  }
+  return entries;
+}
+
+async function processNdjson(text){
+  const entries = parseNdjsonSafe(text);
+  if(!entries.length){ alert('El log está vacío o no contiene líneas JSON válidas.'); return; }
+
+  const analyzed = analyzeLog(entries);
+  const meta     = buildMeta(analyzed);
+  const id       = await dbSave(meta, text);
+  await refreshList();
+  analyzed._id   = id;
+  showLog(analyzed);
+}
+
+function buildMeta(a){
+  const ts  = a.trackingStart  && a.trackingStart.data  && a.trackingStart.data.service;
+  const ses = a.session        && a.session.data;
+  return {
+    service_label: ts ? (ts.t||'—')                                   : '—',
+    route:         ts ? ((ts.o||'?') + ' → ' + (ts.d||'?'))           : '—',
+    date:          a.trackingStart ? a.trackingStart.ts.slice(0,10)   : '—',
+    entries:       a.all.length,
+    sw_version:    ses ? (ses.swVersion||'—')                          : '—'
+  };
+}
+
+/* ============================================================
+   LOG LIST (SIDEBAR)
+   ============================================================ */
+async function refreshList(){
+  if(!db) return;
+  const logs = await dbAll();
+  const list = document.getElementById('log-list');
+  if(!logs.length){
+    list.innerHTML = '<div class="log-list-empty">Sin logs guardados</div>';
+    return;
+  }
+  list.innerHTML = logs.map(log=>`
+    <div class="log-item ${currentData && currentData._id===log.id?'active':''}" data-id="${log.id}">
+      <input type="checkbox" class="log-checkbox" ${selectedIds.has(log.id)?'checked':''}
+             onclick="toggleSel(event,${log.id})">
+      <div class="log-info" onclick="loadById(${log.id})">
+        <div class="log-route">${esc(log.route)}</div>
+        <div class="log-meta">${esc(log.date)} · ${esc(log.service_label)} · ${log.entries} ent.</div>
+      </div>
+      <button class="log-del" onclick="delLog(event,${log.id})" title="Eliminar">🗑</button>
+    </div>
+  `).join('');
+}
+
+async function loadById(id){
+  const rec = await dbGet(id);
+  if(!rec) return;
+  const entries  = parseNdjsonSafe(rec.ndjson_text);
+  const analyzed = analyzeLog(entries);
+  analyzed._id   = id;
+  showLog(analyzed);
+}
+
+async function delLog(e, id){
+  e.stopPropagation();
+  await dbDel(id);
+  selectedIds.delete(id);
+  if(currentData && currentData._id === id){
+    currentData = null;
+    hide('log-content'); show('no-log-msg');
+  }
+  await refreshList();
+  updateCmpBanner();
+}
+
+function toggleSel(e, id){
+  e.stopPropagation();
+  selectedIds.has(id) ? selectedIds.delete(id) : selectedIds.add(id);
+  updateCmpBanner();
+  refreshList();
+}
+
+function clearSelection(){
+  selectedIds.clear();
+  updateCmpBanner();
+  refreshList();
+}
+
+function updateCmpBanner(){
+  const n      = selectedIds.size;
+  const banner = document.getElementById('compare-banner');
+  banner.hidden = n === 0;
+  if(n>0){
+    document.getElementById('compare-count').textContent = n + ' seleccionado' + (n>1?'s':'');
+    document.getElementById('compare-btn').disabled = n !== 2;
+  }
+}
+
+async function doCompare(){
+  const ids = [...selectedIds];
+  if(ids.length !== 2) return;
+  const [r1, r2] = await Promise.all([dbGet(ids[0]), dbGet(ids[1])]);
+  const parse = r => parseNdjsonSafe(r.ndjson_text);
+  const d1 = analyzeLog(parse(r1)); d1._id = r1.id;
+  const d2 = analyzeLog(parse(r2)); d2._id = r2.id;
+  showComparison(d1, d2);
+}
+
+/* ============================================================
+   LOG ANALYZER
+   ============================================================ */
+function analyzeLog(entries){
+  const by  = (c,m) => entries.filter(e=>e.cat===c && e.msg===m);
+  const one = (c,m) => by(c,m)[0];
+
+  const trackingStart    = one('gps','tracking_start');
+  const trackingStop     = one('gps','tracking_stop');
+  const sessionSummary   = one('gps','session_summary');
+  const trackingRoute    = one('gps','tracking_route');
+  const ttff             = one('gps','ttff');
+  const stateChanges     = by('gps','state_change');
+  const marks            = by('gps','mark');
+  const pulses           = by('gps','pulse');
+  const lectures         = by('gps','lectura');
+  const gpsErrors        = by('gps','error_lectura');
+  const zombieCalls      = by('gps','zombie_call');
+  const gpsInternal      = entries.filter(e=>e.cat==='gps_internal');
+  const lifecycle        = entries.filter(e=>e.cat==='lifecycle');
+  const userActions      = entries.filter(e=>e.cat==='accion_usuario');
+  const alerts           = entries.filter(e=>
+    e.cat==='js_error' || e.cat==='promise_rejection' ||
+    (e.cat==='gps' && (e.msg==='zombie_call'||e.msg==='retraso_provisional_estancado')) ||
+    (e.cat==='lifecycle' && e.msg==='wakelock_denegado') ||
+    (e.cat==='gps_perm'  && e.msg==='cambio')
+  );
+  const signalLosts      = by('gps','signal_lost');
+  const signalRecovereds = by('gps','signal_recovered');
+
+  const lostPairs = signalLosts.map(lost=>{
+    const lTs = new Date(lost.ts).getTime();
+    const rec = signalRecovereds.find(r => new Date(r.ts).getTime() > lTs) || null;
+    return { lost, recovered:rec };
+  });
+
+  const startTs = trackingStart ? new Date(trackingStart.ts).getTime() : null;
+  const stopTs  = trackingStop  ? new Date(trackingStop.ts).getTime()  : null;
+
+  return {
+    all:entries, session:one('sesion','inicio'),
+    trackingStart, trackingStop, sessionSummary, trackingRoute, ttff,
+    stateChanges, marks, pulses, lectures, gpsErrors, zombieCalls,
+    gpsInternal, lifecycle, userActions, alerts, lostPairs,
+    startTs, stopTs
+  };
+}
+
+/* ============================================================
+   SHOW LOG
+   ============================================================ */
+function showLog(d){
+  currentData = d;
+  hide('no-log-msg'); hide('compare-content');
+  show('log-content');
+  // reset to dashboard tab
+  document.querySelectorAll('.tab').forEach(b=>b.classList.toggle('active', b.dataset.tab==='dashboard'));
+  show('pane-dashboard'); hide('pane-map');
+  if(leafletMap){ leafletMap.remove(); leafletMap=null; }
+  document.getElementById('leaflet-map').innerHTML='';
+
+  renderServiceHeader(d);
+  renderQualityPanel(d);
+  renderStatsCards(d);
+  renderTimeline(d);
+  renderStationsSection(d);
+  renderSignalLostSection(d);
+  renderAccuracyChart(d);
+  renderGpsInternalSection(d);
+  renderUserActionsSection(d);
+  renderAlertsSection(d);
+  refreshList();
+}
+
+/* ============================================================
+   TAB SWITCH
+   ============================================================ */
+function switchTab(tab){
+  document.querySelectorAll('.tab').forEach(b=>b.classList.toggle('active',b.dataset.tab===tab));
+  document.getElementById('pane-dashboard').hidden = tab!=='dashboard';
+  document.getElementById('pane-map').hidden       = tab!=='map';
+  if(tab==='map' && !leafletMap && currentData) renderMap(currentData);
+}
+
+/* ============================================================
+   HELPERS
+   ============================================================ */
+function show(id){ const el=document.getElementById(id); if(el) el.hidden=false; }
+function hide(id){ const el=document.getElementById(id); if(el) el.hidden=true;  }
+function esc(s){ return s==null?'—':String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;'); }
+function fmtTs(ts){ if(!ts) return '—'; return new Date(ts).toLocaleTimeString('es-ES',{hour:'2-digit',minute:'2-digit',second:'2-digit'}); }
+function fmtDate(ts){ if(!ts) return '—'; return new Date(ts).toLocaleDateString('es-ES',{day:'2-digit',month:'2-digit',year:'numeric'}); }
+function fmtDur(s){ if(s==null) return '—'; const h=Math.floor(s/3600),m=Math.floor((s%3600)/60),sec=s%60; return h?`${h}h ${m}m`:`${m}m ${sec}s`; }
+function sc(state){ return STATE_COLORS[state]||'#30363d'; }
+function sl(state){ return STATE_LABELS[state]||state||'—'; }
+function ftLabel(ft){ return {gps:'GPS',cell:'Antena',assisted:'Asistido',unknown:'Desconocido'}[ft]||ft||'—'; }
+function ftColor(ft){ return STATE_COLORS[ft]||'#30363d'; }
+
+function qualityBadge(d){
+  const ss=d.sessionSummary&&d.sessionSummary.data;
+  if(!ss||!ss.total_fixes) return {label:'Sin datos',color:'#6e7681',icon:'❓'};
+  const gpsPct=ss.gps_fixes/ss.total_fixes, lost=ss.signal_lost_count||0;
+  if(gpsPct>=0.8&&lost===0) return {label:'GPS excelente',color:'#3fb950',icon:'✅'};
+  if(gpsPct>=0.6&&lost<=2)  return {label:'GPS bueno',    color:'#3fb950',icon:'✅'};
+  if(gpsPct>=0.4||lost<=4)  return {label:'GPS irregular',color:'#e3b341',icon:'⚠️'};
+  return {label:'GPS deficiente',color:'#f85149',icon:'❌'};
+}
+
+/* ============================================================
+   1. SERVICE HEADER
+   ============================================================ */
+function renderServiceHeader(d){
+  const ts  = d.trackingStart&&d.trackingStart.data&&d.trackingStart.data.service;
+  const ss  = d.sessionSummary&&d.sessionSummary.data;
+  const ses = d.session&&d.session.data;
+  const q   = qualityBadge(d);
+  document.getElementById('service-header').innerHTML = `
+    <div class="svc-header">
+      <div class="svc-route">${esc(ts?(ts.o||'?')+' → '+(ts.d||'?'):'Ruta desconocida')}</div>
+      <div class="svc-meta">
+        <span>🚄 ${esc(ts&&ts.t||'—')}</span>
+        <span>📅 ${d.trackingStart?esc(fmtDate(d.trackingStart.ts)):'—'}</span>
+        <span>🕐 ${esc(fmtTs(d.trackingStart&&d.trackingStart.ts))} – ${esc(fmtTs(d.trackingStop&&d.trackingStop.ts))}</span>
+        <span>⏱ ${esc(fmtDur(ss&&ss.tracking_duration_s))}</span>
+        <span>📱 ${esc(ses&&ses.swVersion||'—')}</span>
+      </div>
+      <div class="svc-quality" style="color:${q.color}">${q.icon} ${esc(q.label)}</div>
+    </div>`;
+}
+
+/* ============================================================
+   2. QUALITY PANEL
+   ============================================================ */
+function renderQualityPanel(d){
+  const ss=d.sessionSummary&&d.sessionSummary.data;
+  if(!ss){ document.getElementById('quality-panel').innerHTML=''; return; }
+  const tot=ss.total_fixes||1, dur=ss.tracking_duration_s||1, tis=ss.time_in_state_s||{};
+  const gpsPct=Math.round((ss.gps_fixes||0)/tot*100);
+  const cellPct=Math.round((ss.cell_fixes||0)/tot*100);
+  const assPct=Math.round((ss.assisted_fixes||0)/tot*100);
+  const states=['gps','assisted','cell','lost','seeking','stopped_watch','pre_window'];
+  const stBar=states.map(s=>{const p=Math.round(((tis[s]||0)/dur)*100);return p?`<div class="state-seg" style="width:${p}%;background:${sc(s)}" title="${sl(s)}: ${p}%"></div>`:''}).join('');
+  const stLeg=states.filter(s=>(tis[s]||0)>5).map(s=>`<span style="color:${sc(s)}">● ${sl(s)} ${fmtDur(tis[s])}</span>`).join(' ');
+  document.getElementById('quality-panel').innerHTML=`
+    <div class="section-title">Calidad GPS del servicio</div>
+    <div class="quality-grid">
+      <div class="quality-item">
+        <div class="qi-label">Distribución de fixes (${ss.total_fixes})</div>
+        <div class="fix-bar">
+          <div style="width:${gpsPct}%;background:#3fb950" title="GPS ${gpsPct}%"></div>
+          <div style="width:${assPct}%;background:#58a6ff" title="Asistido ${assPct}%"></div>
+          <div style="width:${cellPct}%;background:#f0883e" title="Antena ${cellPct}%"></div>
+        </div>
+        <div class="fix-legend">
+          <span style="color:#3fb950">● GPS ${gpsPct}%</span>
+          <span style="color:#58a6ff">● Asistido ${assPct}%</span>
+          <span style="color:#f0883e">● Antena ${cellPct}%</span>
+        </div>
+      </div>
+      <div class="quality-item">
+        <div class="qi-label">Tiempo por estado</div>
+        <div class="state-bar">${stBar}</div>
+        <div class="state-legend">${stLeg}</div>
+      </div>
+      <div class="quality-item">
+        <div class="qi-label">TTFF (primer fix)</div>
+        <div class="qi-val">${ss.ttff_s!=null?ss.ttff_s+' s':'—'}</div>
+        ${d.ttff?`<div class="qi-sub">${ftLabel(d.ttff.data.fix_type)} · ${d.ttff.data.accuracy_m!=null?Math.round(d.ttff.data.accuracy_m)+' m acc.':''}</div>`:''}
+      </div>
+      <div class="quality-item">
+        <div class="qi-label">Señal perdida</div>
+        <div class="qi-val" style="color:${(ss.signal_lost_count||0)>0?'#f85149':'#3fb950'}">${ss.signal_lost_count||0} veces</div>
+        <div class="qi-sub">${fmtDur(ss.signal_lost_total_s||0)} total perdido</div>
+      </div>
+      <div class="quality-item">
+        <div class="qi-label">Precisión GPS</div>
+        <div class="qi-val">${ss.accuracy_m&&ss.accuracy_m.min!=null?Math.round(ss.accuracy_m.min)+' m':'—'} mín</div>
+        <div class="qi-sub">${ss.accuracy_m&&ss.accuracy_m.max!=null?Math.round(ss.accuracy_m.max)+' m máx':''}</div>
+      </div>
+    </div>`;
+}
+
+/* ============================================================
+   3. STATS CARDS
+   ============================================================ */
+function renderStatsCards(d){
+  const ss=d.sessionSummary&&d.sessionSummary.data;
+  if(!ss){ document.getElementById('stats-cards').innerHTML=''; return; }
+  const cards=[
+    {t:'Fixes GPS totales', v:ss.total_fixes||0, s:`${ss.gps_fixes||0} GPS · ${ss.assisted_fixes||0} Asist. · ${ss.cell_fixes||0} Antena`},
+    {t:'Pérdida de señal',  v:(ss.signal_lost_count||0)+' veces', s:fmtDur(ss.signal_lost_total_s||0)+' total', bad:(ss.signal_lost_count||0)>0},
+    {t:'Errores GPS',       v:(ss.errors||0)+' errores', s:(ss.zombie_calls||0)+' zombie calls', bad:(ss.errors||0)>0},
+    {t:'Duración tracking', v:fmtDur(ss.tracking_duration_s), s:d.trackingStart?fmtDate(d.trackingStart.ts):''},
+    {t:'Cuota localStorage',v:ss.quota_exceeded?'⚠️ Superada':'✅ OK', bad:ss.quota_exceeded}
+  ];
+  document.getElementById('stats-cards').innerHTML=`
+    <div class="section-title">Estadísticas de sesión</div>
+    <div class="cards-row">${cards.map(c=>`
+      <div class="stat-card${c.bad?' bad':''}">
+        <div class="sc-title">${esc(c.t)}</div>
+        <div class="sc-value">${esc(String(c.v))}</div>
+        ${c.s?`<div class="sc-sub">${esc(c.s)}</div>`:''}
+      </div>`).join('')}
+    </div>`;
+}
+
+/* ============================================================
+   4. GPS STATE TIMELINE
+   ============================================================ */
+function renderTimeline(d){
+  if(!d.startTs||!d.stopTs){ document.getElementById('timeline-section').innerHTML=''; return; }
+  const total=d.stopTs-d.startTs;
+  if(total<=0){ document.getElementById('timeline-section').innerHTML=''; return; }
+  const xPct=ts=>Math.min(100,Math.max(0,((new Date(ts).getTime()-d.startTs)/total)*100));
+
+  // Build state segments from state_change events
+  const changes=[...d.stateChanges].sort((a,b)=>new Date(a.ts)-new Date(b.ts));
+  let segs=[];
+  if(!changes.length){
+    segs=[{state:'seeking',s:0,e:100}];
+  } else {
+    const fc=new Date(changes[0].ts).getTime();
+    if(fc>d.startTs) segs.push({state:changes[0].data.from||'seeking',s:0,e:((fc-d.startTs)/total)*100});
+    for(let i=0;i<changes.length;i++){
+      const s=((new Date(changes[i].ts).getTime()-d.startTs)/total)*100;
+      const e=i<changes.length-1?((new Date(changes[i+1].ts).getTime()-d.startTs)/total)*100:100;
+      segs.push({state:changes[i].data.to,s:Math.max(0,s),e:Math.min(100,e)});
+    }
+  }
+
+  const markPins=d.marks.map(m=>{
+    const col=SRC_COL[m.data.source]||'#6e7681';
+    return `<div class="tl-mark" style="left:${xPct(m.ts).toFixed(2)}%;color:${col}" title="${esc(m.data.name||'?')} · ${esc(m.data.hhmm||'?')} · ${esc(SRC_LBL[m.data.source]||m.data.source)}">▼</div>`;
+  }).join('');
+
+  const lifeIcons={visibility:'👁',wakelock_denegado:'🔒',offline:'📵',online:'📶'};
+  const lifePins=d.lifecycle.filter(e=>lifeIcons[e.msg]).map(e=>`
+    <div class="tl-lifecycle" style="left:${xPct(e.ts).toFixed(2)}%" title="${esc(e.msg)} ${esc(fmtTs(e.ts))}">${lifeIcons[e.msg]}</div>`).join('');
+
+  const lblPts=[0,1,2,3,4].map(i=>`<div class="tl-label" style="left:${i*25}%">${fmtTs(new Date(d.startTs+total*i/4).toISOString())}</div>`).join('');
+  const legend=Object.entries(STATE_LABELS).filter(([k])=>['gps','assisted','cell','lost','seeking','stopped_watch'].includes(k))
+    .map(([k,v])=>`<span style="color:${sc(k)}">● ${v}</span>`).join(' ');
+
+  document.getElementById('timeline-section').innerHTML=`
+    <div class="section-title">Timeline de estados GPS</div>
+    <div class="timeline-wrap">
+      <div class="tl-marks-row">${markPins}</div>
+      <div class="tl-bar">${segs.map(sg=>`<div class="tl-seg" style="width:${(sg.e-sg.s).toFixed(2)}%;background:${sc(sg.state)}" title="${sl(sg.state)}: ${fmtDur(Math.round((sg.e-sg.s)/100*total/1000))}"></div>`).join('')}</div>
+      <div class="tl-lifecycle-row">${lifePins}</div>
+      <div class="tl-labels-row">${lblPts}</div>
+      <div class="tl-legend">${legend}</div>
+    </div>`;
+}
+
+/* ============================================================
+   5. STATION PRECISION
+   ============================================================ */
+function renderStationsSection(d){
+  if(!d.marks.length){
+    document.getElementById('stations-section').innerHTML=`<div class="section-title">Precisión en estaciones</div><div class="empty-msg">Sin marcas en este log</div>`;
+    return;
+  }
+  const cards=d.marks.map((m,idx)=>{
+    const md=m.data||{}, mTs=new Date(m.ts).getTime();
+    const src=md.source||'gps', srcCol=SRC_COL[src]||'#6e7681', srcLbl=SRC_LBL[src]||src;
+    // nearby lectures ±60s
+    const nearby=d.lectures.filter(l=>Math.abs(new Date(l.ts).getTime()-mTs)<=60000)
+      .sort((a,b)=>new Date(a.ts)-new Date(b.ts));
+    // covering pulse
+    const cpulse=d.pulses.find(p=>{const pTs=new Date(p.ts).getTime();return pTs>=mTs-60000&&pTs<=mTs+60000;});
+    // rating
+    let rating,rColor;
+    if(src==='gps'&&md.gps_age_s!=null&&md.gps_age_s<10){rating='✅ GPS fresco';rColor='#3fb950';}
+    else if(src==='gps'&&md.gps_age_s!=null){rating=`⚠️ GPS antiguo (${md.gps_age_s} s)`;rColor='#e3b341';}
+    else if((src==='est'||src==='estimated')&&md.app_behavior_correct){rating='⚠️ Estimada (correcta)';rColor='#e3b341';}
+    else if(src==='est'||src==='estimated'){rating='❌ Estimada sin GPS';rColor='#f85149';}
+    else if(src==='manual'){rating='🔴 Manual';rColor='#f85149';}
+    else{rating=ftLabel(md.fix_type_at_mark);rColor=ftColor(md.fix_type_at_mark);}
+
+    const lecHtml=nearby.length?`
+      <div class="st-lectures-title">Lecturas GPS ±60 s alrededor de la marca</div>
+      <table class="mini-table"><thead><tr><th>Hora</th><th>Tipo</th><th>Precisión</th><th>Latencia</th><th>Stale</th></tr></thead><tbody>
+        ${nearby.map(l=>{
+          const pre=new Date(l.ts).getTime()<=mTs;
+          return `<tr class="${pre?'':'post-mark'}">
+            <td>${fmtTs(l.ts)} ${pre?'':'↩'}</td>
+            <td style="color:${ftColor(l.data.fix_type)}">${ftLabel(l.data.fix_type)}</td>
+            <td>${l.data.accuracy_m!=null?Math.round(l.data.accuracy_m)+' m':'—'}</td>
+            <td>${l.data.call_latency_ms!=null?l.data.call_latency_ms+' ms':'—'}</td>
+            <td>${l.data.stale_ms!=null?l.data.stale_ms+' ms':'—'}</td>
+          </tr>`;
+        }).join('')}
+      </tbody></table>`:'' ;
+
+    const pulseHtml=cpulse&&cpulse.data&&cpulse.data.accuracy_m?`
+      <div class="st-pulse">Pulso 60 s: mín ${cpulse.data.accuracy_m.min!=null?Math.round(cpulse.data.accuracy_m.min)+'m':'—'}
+      · avg ${cpulse.data.accuracy_m.avg!=null?Math.round(cpulse.data.accuracy_m.avg)+'m':'—'}
+      · máx ${cpulse.data.accuracy_m.max!=null?Math.round(cpulse.data.accuracy_m.max)+'m':'—'}
+      (${cpulse.data.n} lecturas · ${Object.entries(cpulse.data.fix_types||{}).map(([k,v])=>v+' '+ftLabel(k)).join(', ')})</div>`:'';
+
+    return `
+      <div class="station-card">
+        <div class="st-header" onclick="toggleSt(${idx})">
+          <div class="st-num">${idx+1}</div>
+          <div class="st-name">${esc(md.name||'Estación '+idx)}</div>
+          <div class="st-time">${esc(md.hhmm||'—')}</div>
+          <div class="st-src" style="color:${srcCol}">${esc(srcLbl)}</div>
+          <div class="st-rating" style="color:${rColor}">${esc(rating)}</div>
+          <div class="st-toggle">▼</div>
+        </div>
+        <div class="st-body" id="stb${idx}" hidden>
+          <div class="st-details">
+            <span>GPS age: <b>${md.gps_age_s!=null?md.gps_age_s+' s':'—'}</b></span>
+            <span>Tipo fix: <b style="color:${ftColor(md.fix_type_at_mark)}">${ftLabel(md.fix_type_at_mark)}</b></span>
+            <span>Estado GPS: <b style="color:${sc(md.gps_state)}">${sl(md.gps_state)}</b></span>
+            <span>Wakelock: <b>${md.wakelock?'✅':'❌'}</b></span>
+            <span>Pantalla: <b>${md.visible?'On':'Off'}</b></span>
+            <span>Batería: <b>${md.battery&&md.battery.pct!=null?md.battery.pct+'%':'—'}</b></span>
+            <span>Errores consec.: <b>${md.consecutive_errors||0}</b></span>
+            ${md.probable_cause?`<span>Hipótesis: <b>${esc(HYPO_LBL[md.probable_cause]||md.probable_cause)}</b></span>`:''}
+          </div>
+          ${lecHtml}${pulseHtml}
+        </div>
+      </div>`;
+  }).join('');
+  document.getElementById('stations-section').innerHTML=`
+    <div class="section-title">Precisión en estaciones (${d.marks.length})</div>
+    <div class="stations-list">${cards}</div>`;
+}
+function toggleSt(idx){ const b=document.getElementById('stb'+idx); b.hidden=!b.hidden; }
+
+/* ============================================================
+   6. SIGNAL LOST
+   ============================================================ */
+function renderSignalLostSection(d){
+  if(!d.lostPairs.length){ document.getElementById('signal-lost-section').innerHTML=''; return; }
+  const cards=d.lostPairs.map(({lost,recovered})=>{
+    const ld=lost.data||{}, hypo=ld.hypothesis||'receptor_sin_respuesta';
+    const icon=HYPO_ICON[hypo]||'❓', lbl=HYPO_LBL[hypo]||hypo;
+    const evids=(ld.evidence||[]).map(ev=>`<span class="chip">${esc(ev)}</span>`).join('');
+    const rec=recovered&&recovered.data;
+    return `
+      <div class="lost-card">
+        <div class="lost-header">
+          <span class="lost-icon">${icon}</span>
+          <span class="lost-label">${esc(lbl)}</span>
+          <span class="lost-time">${fmtTs(lost.ts)}</span>
+          <span class="chip chip-${ld.confidence||'low'}">${esc(ld.confidence||'?')}</span>
+        </div>
+        <div class="lost-details">
+          <span>Último fix: <b>${ld.last_fix_s_ago!=null?ld.last_fix_s_ago+' s antes':'—'}</b></span>
+          <span>Tipo: <b style="color:${ftColor(ld.last_fix_type)}">${ftLabel(ld.last_fix_type)}</b></span>
+          <span>Wakelock: <b>${ld.wakelock?'✅':'❌'}</b></span>
+          <span>Pantalla: <b>${ld.visible?'On':'Off'}</b></span>
+          <span>Batería: <b>${ld.battery&&ld.battery.pct!=null?ld.battery.pct+'%':'—'}</b></span>
+          <span>Errores consec.: <b>${ld.consecutive_errors||0}</b></span>
+        </div>
+        ${evids?`<div class="lost-evidence">Evidencias: ${evids}</div>`:''}
+        ${rec?`<div class="lost-recovery">✅ Recuperado en <b>${fmtDur(rec.outage_s)}</b> · Nuevo: <b style="color:${ftColor(rec.new_fix_type)}">${ftLabel(rec.new_fix_type)}</b>${rec.accuracy_m!=null?' · '+Math.round(rec.accuracy_m)+' m':''}</div>`
+             :'<div class="lost-recovery bad">⚠️ Sin recuperación registrada en este log</div>'}
+      </div>`;
+  }).join('');
+  document.getElementById('signal-lost-section').innerHTML=`
+    <div class="section-title">Pérdidas de señal (${d.lostPairs.length})</div>${cards}`;
+}
+
+/* ============================================================
+   7. ACCURACY CHART (SVG)
+   ============================================================ */
+function renderAccuracyChart(d){
+  const el=document.getElementById('accuracy-chart');
+  if(!d.pulses.length&&!d.lectures.length||!d.startTs||!d.stopTs){ el.innerHTML=''; return; }
+  const W=860,H=270,PL=50,PR=20,PT=20,PB=42,cW=W-PL-PR,cH=H-PT-PB,total=d.stopTs-d.startTs;
+  let maxAcc=150;
+  d.pulses.forEach(p=>{const a=p.data&&p.data.accuracy_m;if(a&&a.max!=null)maxAcc=Math.max(maxAcc,a.max);});
+  d.lectures.forEach(l=>{if(l.data&&l.data.accuracy_m!=null)maxAcc=Math.max(maxAcc,l.data.accuracy_m);});
+  maxAcc=Math.min(maxAcc*1.15,600);
+  const xOf=ts=>PL+((new Date(ts).getTime()-d.startTs)/total)*cW;
+  const yOf=m =>PT+cH-(Math.min(m,maxAcc)/maxAcc)*cH;
+
+  // Lost zones
+  const zones=d.lostPairs.map(({lost,recovered})=>{
+    const x1=xOf(lost.ts),x2=recovered?xOf(recovered.ts):PL+cW;
+    return `<rect x="${x1.toFixed(1)}" y="${PT}" width="${Math.max(1,(x2-x1)).toFixed(1)}" height="${cH}" fill="#f85149" opacity="0.12"/>`;
+  }).join('');
+
+  // Pulse lines
+  const pp=d.pulses.filter(p=>{const t=new Date(p.ts).getTime();return t>=d.startTs&&t<=d.stopTs;}).sort((a,b)=>new Date(a.ts)-new Date(b.ts));
+  const mkLine=(getter,col,dash='')=>{
+    const pts=pp.map(p=>{const v=getter(p.data&&p.data.accuracy_m);return v!=null?`${xOf(p.ts).toFixed(1)},${yOf(v).toFixed(1)}`:null;}).filter(Boolean);
+    return pts.length>=2?`<polyline points="${pts.join(' ')}" fill="none" stroke="${col}" stroke-width="1.5" ${dash?`stroke-dasharray="${dash}"`:''} opacity="0.85"/>`:''
+  };
+
+  // Individual dots
+  const dots=d.lectures.filter(l=>{const t=new Date(l.ts).getTime();return t>=d.startTs&&t<=d.stopTs&&l.data.accuracy_m!=null;})
+    .map(l=>`<circle cx="${xOf(l.ts).toFixed(1)}" cy="${yOf(l.data.accuracy_m).toFixed(1)}" r="3.5" fill="${ftColor(l.data.fix_type)}" opacity="0.75"/>`).join('');
+
+  // Reference lines
+  const ref=(y,col,lbl)=>`<line x1="${PL}" x2="${PL+cW}" y1="${yOf(y).toFixed(1)}" y2="${yOf(y).toFixed(1)}" stroke="${col}" stroke-dasharray="5,3" opacity="0.45"/>
+    <text x="${PL-5}" y="${yOf(y)+4}" text-anchor="end" fill="${col}" font-size="10" opacity="0.8">${lbl}</text>`;
+
+  // Mark verticals
+  const mLines=d.marks.map(m=>{
+    const t=new Date(m.ts).getTime();
+    if(t<d.startTs||t>d.stopTs)return'';
+    const x=xOf(m.ts).toFixed(1),col=SRC_COL[m.data.source]||'#6e7681';
+    return `<line x1="${x}" x2="${x}" y1="${PT}" y2="${PT+cH}" stroke="${col}" stroke-dasharray="3,3" opacity="0.55"/>`;
+  }).join('');
+
+  // Axes
+  const yTicks=[0,Math.round(maxAcc/4),Math.round(maxAcc/2),Math.round(maxAcc*3/4),Math.round(maxAcc)];
+  const yAxis=yTicks.map(v=>`<line x1="${PL-3}" x2="${PL}" y1="${yOf(v).toFixed(1)}" y2="${yOf(v).toFixed(1)}" stroke="#6e7681"/><text x="${PL-7}" y="${yOf(v)+4}" text-anchor="end" fill="#6e7681" font-size="10">${v}</text>`).join('');
+  const xAxis=[0,1,2,3,4].map(i=>{
+    const t=new Date(d.startTs+total*i/4).toISOString();
+    const x=(PL+cW*i/4).toFixed(1);
+    return `<line x1="${x}" x2="${x}" y1="${PT+cH}" y2="${PT+cH+4}" stroke="#6e7681"/><text x="${x}" y="${PT+cH+14}" text-anchor="middle" fill="#6e7681" font-size="9">${fmtTs(t)}</text>`;
+  }).join('');
+
+  const svg=`<svg viewBox="0 0 ${W} ${H}" xmlns="http://www.w3.org/2000/svg" style="width:100%;border-radius:8px;background:#161b22">
+    <rect x="${PL}" y="${PT}" width="${cW}" height="${cH}" fill="#0d1117" rx="2"/>
+    ${zones}${ref(50,'#3fb950','50 m')}${ref(100,'#f0883e','100 m')}
+    ${mLines}
+    ${mkLine(a=>a&&a.min,'#3fb950')}
+    ${mkLine(a=>a&&a.avg,'#58a6ff','')}
+    ${mkLine(a=>a&&a.max,'#f0883e','5,3')}
+    ${dots}
+    <line x1="${PL}" x2="${PL}" y1="${PT}" y2="${PT+cH}" stroke="#30363d"/>
+    <line x1="${PL}" x2="${PL+cW}" y1="${PT+cH}" y2="${PT+cH}" stroke="#30363d"/>
+    ${yAxis}${xAxis}
+    <text x="${12}" y="${PT+cH/2}" text-anchor="middle" fill="#6e7681" font-size="10" transform="rotate(-90,12,${PT+cH/2})">Precisión (m)</text>
+    <circle cx="${W-175}" cy="${PT+10}" r="4" fill="#3fb950"/><text x="${W-168}" y="${PT+14}" fill="#9ba3ad" font-size="10">Mín GPS</text>
+    <circle cx="${W-115}" cy="${PT+10}" r="4" fill="#58a6ff"/><text x="${W-108}" y="${PT+14}" fill="#9ba3ad" font-size="10">Media</text>
+    <circle cx="${W-60}"  cy="${PT+10}" r="4" fill="#f0883e"/><text x="${W-53}"  y="${PT+14}" fill="#9ba3ad" font-size="10">Máx</text>
+    <circle cx="${W-15}"  cy="${PT+10}" r="4" fill="transparent" stroke="#58a6ff"/><text x="${W-22}" y="${PT-2}" fill="#9ba3ad" font-size="9">● lecturas individuales (color=tipo)</text>
+  </svg>`;
+
+  el.innerHTML=`<div class="section-title">Precisión GPS a lo largo del servicio</div>${svg}`;
+}
+
+/* ============================================================
+   8. GPS INTERNAL EVENTS
+   ============================================================ */
+function renderGpsInternalSection(d){
+  if(!d.gpsInternal.length){ document.getElementById('gps-internal-section').innerHTML=''; return; }
+  const INT_LBL={parado:'Parado (antena off)',arranque:'Arranque (antena on)',
+    cold_start:'Cold start GPS',cold_defer:'Diferido (cold defer)',
+    checkpoint:'Checkpoint',cpa:'Punto más cercano (CPA)',
+    desvio:'Desvío detectado',desvio_fin:'Fin de desvío',
+    ltv_wait:'Espera LTV',ltv_clear:'LTV despejado',
+    fuera_ruta:'Fuera de ruta',geo_defer:'Geo diferido'};
+  const rows=d.gpsInternal.map(e=>`<tr>
+    <td>${fmtTs(e.ts)}</td>
+    <td><b>${esc(INT_LBL[e.msg]||e.msg)}</b></td>
+    <td style="color:var(--fg-dim)">${esc(e.data&&e.data.t_interno||'')}</td>
+    <td>${esc(e.data&&e.data.detalle||'')}</td>
+  </tr>`).join('');
+  document.getElementById('gps-internal-section').innerHTML=`
+    <div class="section-title">Eventos internos gps-tracking.js (${d.gpsInternal.length})</div>
+    <table class="event-table"><thead><tr><th>Hora</th><th>Evento</th><th>Hora interna</th><th>Detalle</th></tr></thead><tbody>${rows}</tbody></table>`;
+}
+
+/* ============================================================
+   9. USER ACTIONS
+   ============================================================ */
+function renderUserActionsSection(d){
+  if(!d.userActions.length){ document.getElementById('user-actions-section').innerHTML=''; return; }
+  const ACT_LBL={marca_alta_tabla:'Marca añadida (tabla)',marca_baja_tabla:'Marca borrada (tabla)',
+    reset_punteo:'Punteo reseteado',marca_manual_post_gps:'Marca manual post-GPS',cambio_marcha:'Cambio de marcha'};
+  const rows=d.userActions.map(e=>`<tr>
+    <td>${fmtTs(e.ts)}</td>
+    <td>${esc(ACT_LBL[e.msg]||e.msg)}</td>
+    <td>${esc(e.data&&(e.data.name||(e.data.idx!=null?'Est. '+e.data.idx:''))||'')}</td>
+  </tr>`).join('');
+  document.getElementById('user-actions-section').innerHTML=`
+    <div class="section-title">Acciones del usuario (${d.userActions.length})</div>
+    <table class="event-table"><thead><tr><th>Hora</th><th>Acción</th><th>Detalle</th></tr></thead><tbody>${rows}</tbody></table>`;
+}
+
+/* ============================================================
+   10. ALERTS
+   ============================================================ */
+function renderAlertsSection(d){
+  if(!d.alerts.length){ document.getElementById('alerts-section').innerHTML=''; return; }
+  const ICONS={js_error:'🔴',promise_rejection:'🔴',zombie_call:'🟠',retraso_provisional_estancado:'🟡',wakelock_denegado:'🟡',cambio:'🔵'};
+  const rows=d.alerts.map(e=>{
+    let detail='';
+    if(e.cat==='js_error') detail=`${e.msg} — ${e.data&&e.data.src||'?'}:${e.data&&e.data.line||'?'}`;
+    else if(e.cat==='promise_rejection') detail=String(e.msg).slice(0,100);
+    else if(e.msg==='zombie_call') detail=`${e.data&&e.data.elapsed_ms||'?'} ms · estado:${e.data&&e.data.gps_state||'?'}`;
+    else if(e.msg==='cambio') detail=`${e.data&&e.data.from||'?'} → ${e.data&&e.data.to||'?'}`;
+    else detail=JSON.stringify(e.data||{}).slice(0,80);
+    return `<tr><td>${fmtTs(e.ts)}</td><td>${ICONS[e.msg]||'⚪'}</td><td>${esc(e.cat)}</td><td style="font-family:'JetBrains Mono',monospace;font-size:10px">${esc(detail)}</td></tr>`;
+  }).join('');
+  document.getElementById('alerts-section').innerHTML=`
+    <div class="section-title">Alertas y errores (${d.alerts.length})</div>
+    <table class="event-table"><thead><tr><th>Hora</th><th></th><th>Tipo</th><th>Detalle</th></tr></thead><tbody>${rows}</tbody></table>`;
+}
+
+/* ============================================================
+   MAP (LEAFLET)
+   ============================================================ */
+function renderMap(d){
+  const mapDiv=document.getElementById('leaflet-map');
+  if(leafletMap){ leafletMap.remove(); leafletMap=null; }
+  leafletMap=L.map(mapDiv,{center:[40.4,-3.7],zoom:6});
+  L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png',{
+    attribution:'© <a href="https://openstreetmap.org">OpenStreetMap</a>',maxZoom:18
+  }).addTo(leafletMap);
+  mapLayers={};
+  const allBounds=[];
+
+  // LAYER: Route from tracking_route
+  const route=d.trackingRoute&&d.trackingRoute.data&&d.trackingRoute.data.stations;
+  if(route&&route.length){
+    const rPts=route.filter(s=>s.lat&&s.lng).map(s=>[s.lat,s.lng]);
+    if(rPts.length>=2){
+      mapLayers.route=L.polyline(rPts,{color:'#f0883e',weight:4,opacity:0.7});
+      mapLayers.route.addTo(leafletMap);
+      allBounds.push(...rPts);
+    }
+    // Station markers
+    const stGroup=L.layerGroup();
+    route.filter(s=>s.lat&&s.lng).forEach(s=>{
+      const mk=d.marks.find(m=>m.data&&m.data.name===s.n);
+      const col=mk?SRC_COL[mk.data.source]||'#58a6ff':'#30363d';
+      const cm=L.circleMarker([s.lat,s.lng],{radius:mk?7:4,color:'#e6edf3',weight:mk?2:1,fillColor:col,fillOpacity:1});
+      cm.bindPopup(`<b>${s.n}</b><br>Hora horario: ${s.h||'—'}${mk?`<br><b>Marcada:</b> ${mk.data.hhmm||'?'} · ${SRC_LBL[mk.data.source]||mk.data.source}<br>GPS age: ${mk.data.gps_age_s!=null?mk.data.gps_age_s+' s':'—'}`:'<br><i>Sin marcar</i>'}`);
+      stGroup.addLayer(cm);
+    });
+    mapLayers.stations=stGroup; stGroup.addTo(leafletMap);
+  }
+
+  // LAYER: GPS track (colored by fix_type)
+  const lecs=d.lectures.filter(l=>l.data&&l.data.lat&&l.data.lng);
+  if(lecs.length>=2){
+    const tg=L.layerGroup();
+    for(let i=1;i<lecs.length;i++){
+      const p=lecs[i-1],c=lecs[i];
+      L.polyline([[p.data.lat,p.data.lng],[c.data.lat,c.data.lng]],{
+        color:ftColor(c.data.fix_type),weight:3,opacity:0.8
+      }).addTo(tg);
+    }
+    mapLayers.track=tg; tg.addTo(leafletMap);
+    lecs.forEach(l=>allBounds.push([l.data.lat,l.data.lng]));
+  }
+
+  // LAYER: Mark numbers (positioned at nearest GPS reading)
+  const mg=L.layerGroup();
+  d.marks.forEach((m,i)=>{
+    const mTs=new Date(m.ts).getTime();
+    let best=null,bestD=Infinity;
+    lecs.forEach(l=>{const df=Math.abs(new Date(l.ts).getTime()-mTs);if(df<bestD){bestD=df;best=l;}});
+    if(!best) return;
+    const col=SRC_COL[m.data.source]||'#6e7681';
+    const ic=L.divIcon({
+      html:`<div style="background:${col};color:#fff;border-radius:50%;width:22px;height:22px;line-height:22px;text-align:center;font-size:11px;font-weight:700;border:2px solid rgba(255,255,255,.8)">${i+1}</div>`,
+      iconSize:[22,22],iconAnchor:[11,11],className:''
+    });
+    const mk=L.marker([best.data.lat,best.data.lng],{icon:ic});
+    mk.bindPopup(`<b>${i+1}. ${m.data.name||'?'}</b><br>Hora: ${m.data.hhmm||'?'}<br>Fuente: ${SRC_LBL[m.data.source]||m.data.source}<br>GPS age: ${m.data.gps_age_s!=null?m.data.gps_age_s+' s':'—'}<br>Precisión: ${best.data.accuracy_m!=null?Math.round(best.data.accuracy_m)+' m':'—'}<br>Tipo: ${ftLabel(best.data.fix_type)}`);
+    mg.addLayer(mk);
+  });
+  mapLayers.markPoints=mg; mg.addTo(leafletMap);
+
+  // LAYER: Signal lost markers
+  if(d.lostPairs.length){
+    const slg=L.layerGroup();
+    d.lostPairs.forEach(({lost,recovered})=>{
+      const lTs=new Date(lost.ts).getTime();
+      let pos=null,minD=Infinity;
+      lecs.forEach(l=>{const df=Math.abs(new Date(l.ts).getTime()-lTs);if(df<minD){minD=df;pos=l;}});
+      if(!pos) return;
+      const hypo=lost.data&&lost.data.hypothesis||'?';
+      const ic=L.divIcon({
+        html:`<div style="background:#f85149;color:#fff;border-radius:50%;width:20px;height:20px;line-height:20px;text-align:center;font-size:13px;border:2px solid #fff">!</div>`,
+        iconSize:[20,20],iconAnchor:[10,10],className:''
+      });
+      const mk=L.marker([pos.data.lat,pos.data.lng],{icon:ic});
+      mk.bindPopup(`<b>⚠️ Pérdida de señal</b><br>${fmtTs(lost.ts)}<br>Hipótesis: ${HYPO_LBL[hypo]||hypo}${recovered?`<br>Recuperado en ${fmtDur(recovered.data&&recovered.data.outage_s)}`:'<br><i>Sin recuperación registrada</i>'}`);
+      slg.addLayer(mk);
+    });
+    mapLayers.signalLost=slg; slg.addTo(leafletMap);
+  }
+
+  // Fit bounds
+  if(allBounds.length>=2){
+    try{ leafletMap.fitBounds(L.latLngBounds(allBounds).pad(0.08)); }catch(e){}
+  }
+  renderMapControls();
+}
+
+function renderMapControls(){
+  const defs=[
+    {k:'route',      l:'Ruta del servicio',  c:'#f0883e'},
+    {k:'stations',   l:'Estaciones',         c:'#e6edf3'},
+    {k:'track',      l:'Track GPS',          c:'#58a6ff'},
+    {k:'markPoints', l:'Marcas de paso',     c:'#3fb950'},
+    {k:'signalLost', l:'Pérdidas de señal',  c:'#f85149'}
+  ];
+  document.getElementById('map-layer-controls').innerHTML=defs.filter(df=>mapLayers[df.k]).map(df=>`
+    <label class="map-layer-toggle">
+      <input type="checkbox" checked onchange="toggleLayer('${df.k}',this.checked)">
+      <span style="color:${df.c}">● ${df.l}</span>
+    </label>`).join('');
+}
+
+function toggleLayer(key,show){
+  if(!mapLayers[key]||!leafletMap) return;
+  show ? mapLayers[key].addTo(leafletMap) : leafletMap.removeLayer(mapLayers[key]);
+}
+
+/* ============================================================
+   COMPARISON VIEW
+   ============================================================ */
+function showComparison(d1,d2){
+  currentData=null;
+  hide('no-log-msg'); hide('log-content'); show('compare-content');
+  const col=(d,n)=>{
+    const ts=d.trackingStart&&d.trackingStart.data&&d.trackingStart.data.service;
+    const ss=d.sessionSummary&&d.sessionSummary.data;
+    const q=qualityBadge(d);
+    return `<div class="cmp-col">
+      <div class="cmp-route">${esc(ts?(ts.o||'?')+'→'+(ts.d||'?'):'—')}</div>
+      <div class="cmp-date">📅 ${esc(d.trackingStart?fmtDate(d.trackingStart.ts):'—')} · 🚄 ${esc(ts&&ts.t||'—')}</div>
+      <div class="cmp-quality" style="color:${q.color}">${q.icon} ${esc(q.label)}</div>
+      ${ss?`
+        <div class="cmp-stat"><label>Duración</label><val>${fmtDur(ss.tracking_duration_s)}</val></div>
+        <div class="cmp-stat"><label>TTFF</label><val>${ss.ttff_s!=null?ss.ttff_s+' s':'—'}</val></div>
+        <div class="cmp-stat"><label>Fixes GPS</label><val>${ss.gps_fixes||0}/${ss.total_fixes||0} (${ss.total_fixes?Math.round((ss.gps_fixes||0)/ss.total_fixes*100):0}%)</val></div>
+        <div class="cmp-stat"><label>Antena</label><val>${ss.cell_fixes||0} fixes</val></div>
+        <div class="cmp-stat"><label>Señal perdida</label><val style="color:${(ss.signal_lost_count||0)>0?'#f85149':'#3fb950'}">${ss.signal_lost_count||0}× · ${fmtDur(ss.signal_lost_total_s||0)}</val></div>
+        <div class="cmp-stat"><label>Errores GPS</label><val>${ss.errors||0}</val></div>
+        <div class="cmp-stat"><label>Zombie calls</label><val>${ss.zombie_calls||0}</val></div>
+        <div class="cmp-stat"><label>Precisión mín</label><val>${ss.accuracy_m&&ss.accuracy_m.min!=null?Math.round(ss.accuracy_m.min)+' m':'—'}</val></div>
+      `:'<div class="cmp-no-data">Sin session_summary</div>'}
+      <div class="cmp-marks"><b>Marcas (${d.marks.length}):</b><br>${d.marks.map((m,i)=>`<span style="color:${SRC_COL[m.data.source]||'#ccc'};margin-right:4px">${i+1}.${esc(m.data.name||'?')}</span>`).join('')}</div>
+    </div>`;
+  };
+  document.getElementById('compare-content').innerHTML=`
+    <div class="compare-header">
+      <button class="btn-back" onclick="exitCompare()">← Volver</button>
+      <h2>Comparación de logs</h2>
+    </div>
+    <div class="compare-cols">${col(d1,1)}<div class="cmp-divider"></div>${col(d2,2)}</div>
+    <div class="section-title" style="margin-top:24px">Mapa comparativo (azul = log 1 · verde = log 2)</div>
+    <div id="compare-map"></div>`;
+
+  // Compare map
+  setTimeout(()=>{
+    const cmap=L.map('compare-map',{center:[40.4,-3.7],zoom:6});
+    L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png',{attribution:'© OSM'}).addTo(cmap);
+    const colors=['#58a6ff','#3fb950'];
+    const allPts=[];
+    [d1,d2].forEach((d,i)=>{
+      const ls=d.lectures.filter(l=>l.data&&l.data.lat&&l.data.lng);
+      if(ls.length>=2){
+        const pts=ls.map(l=>[l.data.lat,l.data.lng]);
+        L.polyline(pts,{color:colors[i],weight:3,opacity:0.8}).addTo(cmap);
+        allPts.push(...pts);
+      }
+      const rt=d.trackingRoute&&d.trackingRoute.data&&d.trackingRoute.data.stations;
+      if(rt){
+        const rp=rt.filter(s=>s.lat&&s.lng).map(s=>[s.lat,s.lng]);
+        if(rp.length>=2){ L.polyline(rp,{color:colors[i],weight:2,opacity:0.4,dashArray:'6,4'}).addTo(cmap); allPts.push(...rp); }
+      }
+    });
+    if(allPts.length>=2) try{ cmap.fitBounds(L.latLngBounds(allPts).pad(0.08)); }catch(e){}
+  },100);
+}
+
+function exitCompare(){
+  hide('compare-content');
+  if(currentData){ show('log-content'); }
+  else{ show('no-log-msg'); }
+}
+</script>
+</body>
+</html>
