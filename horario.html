@@ -8,7 +8,7 @@
 <meta name="apple-mobile-web-app-title" content="HT Iryo">
 <meta name="application-name" content="HT Iryo">
 <meta name="theme-color" content="#e8201c">
-<meta name="ebula-version" content="studio-v17">
+<meta name="ebula-version" content="studio-v18">
 <link rel="manifest" href="./manifest.webmanifest">
 <link rel="icon" type="image/png" sizes="192x192" href="./icon-192.png">
 <link rel="apple-touch-icon" href="./icon-192.png">
@@ -3561,6 +3561,32 @@
       return (lp>=0 && i>=lp) ? tm + delayMin : tm;
     }
 
+    // FIX3 (regla maestra 2, dueño 26-06): GPS apagado → marcar por hora. Si el seguimiento
+    // GPS NO está activo, rellena la columna Real con marcas estimadas (~) a medida que se
+    // cumple la hora prevista (effTm) de cada estación. No pisa marcas existentes. Solo en
+    // hora real (liveMode), con seguimiento por hora activo (trackingOn) y dentro de la ventana
+    // del servicio (para no marcar con la app abierta fuera de servicio). Con el GPS activo NO
+    // actúa (lo gestiona gps-tracking.js).
+    if(liveMode && trackingOn && !(window.HTIryo && window.HTIryo.isTracking && window.HTIryo.isTracking())){
+      let firstE=null, lastE=null;
+      for(let i=1;i<stops.length;i++){ const e=effTm(i); if(e==null) continue; if(firstE==null) firstE=e; lastE=e; }
+      if(firstE!=null && t >= firstE-2 && t <= lastE+30){
+        let changed=false;
+        for(let i=1;i<stops.length;i++){
+          const s=stops[i];
+          if(s.tm==null || !s.n) continue;                         // no markable / sin hora
+          if(s._l010cdi||s._l010zn||s._l030zn||s._l040zn||s._l042zn||s._l050zn||s._boxann) continue; // dependencias
+          if(getMarkAt(i)!=null) continue;                          // no pisa manual/gps/est
+          const e=effTm(i);
+          if(e!=null && t>=e){
+            setMarkAt(i, pad(Math.floor(e/60)%24)+':'+pad(Math.floor(e%60)), 'est');
+            changed=true;
+          }
+        }
+        if(changed){ savePunches(); saveMarkSource(); applyPunches(); }
+      }
+    }
+
     let activeIdx = -1, prevIdx = -1, nextIdx = -1;
     for(let i=0;i<stops.length;i++){
       const e = effTm(i);
@@ -4373,7 +4399,7 @@
   (function showSwVersion(){
     const el=$('sw-version'); if(!el) return;
     const ORIGINAL_VER = 'ebula-v82';
-    const LOC_VER      = 'loc.-V23';
+    const LOC_VER      = 'loc.-V24';
     el.innerHTML = '<span class="ver-orig">' + ORIGINAL_VER + '</span>' +
                    '<br><span class="ver-loc">' + LOC_VER + '</span>';
   })();
