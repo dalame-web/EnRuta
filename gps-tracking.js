@@ -44,6 +44,7 @@
   var LTV_FAR_THRESHOLD_M = 5000;   // primera lectura > 5 km al abrir ventana → mitigación DHLTV
   var RELOC_RECEDE_MIN_M  = 400;    // FIX1: subida total de distancia en 3 lecturas para confirmar "alejándose / ya pasó"
   var RELOC_BACKDATE_MAX_M= 10000;  // FIX1: por encima de esta distancia, no backdatar por GPS; dejar la estimación por tiempo
+  var FIX2_AT_STATION_M   = 3000;   // FIX2: parado a < esta distancia de la estación objetivo = "en/junto a ella"
 
   // ---- Parámetros detector de parado (Bloque 4) ----
   var STOP_SPEED_MAX_MS         = 0.83;        // ≈ 3 km/h: por debajo cuenta como "lectura lenta"
@@ -1070,6 +1071,19 @@
       // el resto del flujo (no CPA, no marca, no LTV — el tren no se mueve).
       updateStoppedState(pos, nowMs);
       if(isStopped){
+        // FIX2: si estamos parados a < FIX2_AT_STATION_M de la estación objetivo y su hora
+        // prevista ya se cumplió, marcar 'est' — estamos detenidos en/junto a ella y el CPA no
+        // la confirmará estando quietos (la distancia no sube). Regla maestra: no dejarla en
+        // blanco. Si fuera un parón antes de la estación, el 'est' sale algo pronto (aceptable,
+        // corregible). Guardas: no LTV y sin marca previa (no pisa gps/manual).
+        var effStop = effTime(gpsNextIdx);
+        if(!ltvWait && API.getMark(gpsNextIdx) == null &&
+           distM != null && distM < FIX2_AT_STATION_M &&
+           normNow(effStop) >= effStop){
+          logEvent('parado_marca', name + ' — parado en/junto a la estación, hora cumplida; marca estimada', 'pmk' + gpsNextIdx);
+          estimateMark(gpsNextIdx);
+          return;
+        }
         var durMin = Math.floor((nowMs - stoppedSince) / 60000);
         var sufijo = (durMin >= 1) ? (' (' + durMin + ' min)') : '';
         setStatus('Tren detenido — esperando arranque cerca de ' + name + sufijo, 'warn');
@@ -1190,9 +1204,20 @@
         var nowMNow = normNow(effNow);
         if(nowMNow > effNow + 0.5){
           var prov = currentDelta() + (nowMNow - effNow);
-          API.setProvisionalDelay(prov);
-          logEvent('retraso', '+' + Math.round(prov) + ' min provisional hacia ' + name, 'retraso' + Math.round(prov));
-          setStatus('Retraso creciendo: +' + fmtDur(prov) + ' · sin pasar aún ' + name, 'warn');
+          // FIX2: GPS bueno pero sin poder confirmar el paso (geometría/CPA no lo dan) y ya
+          // venció la hora prevista + margen giveup, y el tren NO se acerca (distancia no baja)
+          // → marcar 'est' (regla maestra: no dejar en blanco). Si se acerca (distancia bajando)
+          // es retraso real aún sin pasar → solo provisional, no marca.
+          var approaching2 = nH >= 2 && cpaHistory[nH-1].distM < cpaHistory[nH-2].distM;
+          var giveUpMin2 = Math.min(GIVEUP_MIN + gpsFailCount, GIVEUP_MAX);
+          if(!ltvWait && !approaching2 && nowMNow >= effNow + giveUpMin2){
+            logEvent('giveup_gps', name + ' — GPS sin confirmar y hora vencida +' + Math.round(nowMNow - effNow) + ' min; marca estimada', 'gug' + gpsNextIdx);
+            estimateMark(gpsNextIdx);
+          } else {
+            API.setProvisionalDelay(prov);
+            logEvent('retraso', '+' + Math.round(prov) + ' min provisional hacia ' + name, 'retraso' + Math.round(prov));
+            setStatus('Retraso creciendo: +' + fmtDur(prov) + ' · sin pasar aún ' + name, 'warn');
+          }
         } else {
           // GPS-003 RC3: mantener lock en hora — currentDelta() en vez de null
           // para que el icono no avance por tiempo cuando GPS sabe que aún no pasó.
