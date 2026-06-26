@@ -232,10 +232,11 @@
   }
 
   // ¿Es una fila que el GPS debe seguir? Estación con nombre, coordenada y hora
-  // teórica; se excluye el origen (idx 0) y las dependencias BCE/CDI.
+  // teórica; se excluye el origen (idx 0) y las dependencias BCE/CDI/ZN/boxann.
   function isMarkable(m, i){
     var s = m.s[i];
-    return !!(i > 0 && s && s.n && API.COORDS[s.n] && s.tm != null && !s._l010cdi);
+    return !!(i > 0 && s && s.n && API.COORDS[s.n] && s.tm != null
+      && !s._l010cdi && !s._l010zn && !s._l030zn && !s._l040zn && !s._l042zn && !s._l050zn && !s._boxann);
   }
 
   // Retraso (+) / adelanto (−) actual en minutos.
