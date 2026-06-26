@@ -192,7 +192,12 @@
             ts: fixTimestamp(p)          // hora real del fix (epoch ms), no la de resolución
           }); },
           function(err){ reject(err); },
-          { enableHighAccuracy:true, timeout:10000, maximumAge:0 }
+          // timeout 15s (antes 10s): da margen al chip de la tablet, que devolvía
+          // "Timeout expired" (code 3) en rachas de 90+ s cerca de estaciones,
+          // dejando al tren sin posición varios km. maximumAge 3s: acepta un fix
+          // reciente en cache en vez de fallar — a velocidad de línea 3 s ≈ 240 m
+          // de desfase, muy preferible a un hueco ciego que se salta el paso.
+          { enableHighAccuracy:true, timeout:15000, maximumAge:3000 }
         );
       });
     },

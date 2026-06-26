@@ -2310,7 +2310,7 @@
     <button id="track-toggle" class="track-btn" type="button">⏱ Seguimiento: ON</button>
     <span class="ctrl-grp" style="margin-left:auto">
       <span class="sub">Δ marcha:</span>
-      <span id="delta" class="delta ontime">±0:00</span>
+      <span id="delta" class="delta ontime">±0 min</span>
     </span>
   </div>
   <div class="progress-track"><div id="progress" class="progress-fill" style="width:0%"></div></div>
@@ -4212,10 +4212,9 @@ window.addEventListener('unload', ebulaClearAllData);
     return manualOffsetMs;
   }
   function fmtDelta(secs){
+    // Solo minutos: los segundos del GPS no son fiables (decisión del dueño).
     const sign = secs<0?'−':(secs>0?'+':'±');
-    const abs = Math.abs(secs);
-    const m = Math.floor(abs/60), s = Math.floor(abs%60);
-    return sign+m+':'+pad(s);
+    return sign+Math.round(Math.abs(secs)/60)+' min';
   }
   function loadPunches(){try{punches=JSON.parse(localStorage.getItem(PUNCH_KEY)||'{}')}catch(e){punches={}}}
   function savePunches(){try{localStorage.setItem(PUNCH_KEY,JSON.stringify(punches))}catch(e){}}
@@ -4714,8 +4713,8 @@ window.addEventListener('unload', ebulaClearAllData);
     }
     const dEl = $('delta');
     const pfx = provisional ? '~' : '';
-    if(deltaSec == null){dEl.className='delta ontime';dEl.textContent='±0:00'}
-    else if(Math.abs(deltaSec) < 30){dEl.className='delta ontime';dEl.textContent='±0:00'}
+    if(deltaSec == null){dEl.className='delta ontime';dEl.textContent='±0 min'}
+    else if(Math.abs(deltaSec) < 30){dEl.className='delta ontime';dEl.textContent='±0 min'}
     else if(deltaSec < 0){dEl.className='delta early';dEl.textContent=pfx+fmtDelta(deltaSec)+' adelanto'}
     else{dEl.className='delta late';dEl.textContent=pfx+fmtDelta(deltaSec)+' retraso'}
 
