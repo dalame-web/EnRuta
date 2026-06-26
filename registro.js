@@ -1873,6 +1873,15 @@
     getActiveTurno: function () {
       return turnos.find(function (t) { return t.estado === 'en_curso'; }) || null;
     },
+    // Turno abierto ahora mismo en el editor (o null si no hay editor abierto).
+    getEditTurno: function () {
+      return editId != null ? getTurno(editId) : null;
+    },
+    // Índice del servicio expandido en el editor (al que apunta el cross-feed
+    // de Horario). Permite que la marcha caiga sobre el 2º servicio, no el 1º.
+    getActiveSvcIndex: function () {
+      return expandedSvc;
+    },
     getOrCreateActiveTurno: function () {
       var t = turnos.find(function (t) { return t.estado === 'en_curso'; });
       if (!t) {

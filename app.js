@@ -17,19 +17,35 @@
     });
   }
 
+  // Servicio destino del cross-feed Horario→Registro. Apunta al servicio
+  // EXPANDIDO en el editor (p.ej. el 2º), no siempre al primero. Si no hay
+  // editor abierto, cae al turno activo (creándolo si allowCreate).
+  // Devuelve { turno, svcIndex, svc } o null.
+  function svcCtx(allowCreate) {
+    var R = window.REGISTRO;
+    if (!R) return null;
+    var turno = R.getEditTurno && R.getEditTurno();
+    if (!turno) {
+      turno = (allowCreate && R.getOrCreateActiveTurno)
+        ? R.getOrCreateActiveTurno()
+        : (R.getActiveTurno && R.getActiveTurno());
+    }
+    if (!turno || !turno.servicios || !turno.servicios.length) return null;
+    var idx = R.getActiveSvcIndex ? R.getActiveSvcIndex() : 0;
+    if (idx == null || idx < 0 || idx >= turno.servicios.length) idx = 0;
+    return { turno: turno, svcIndex: idx, svc: turno.servicios[idx] };
+  }
+
   // Aplica la marcha activa de HT al turno si éste no tiene servicio asignado.
   // Se llama al entrar en el tab Registro (sync pasivo, sin pedir confirmación).
   function syncMarchaToRegistro() {
     if (!window.HTIryo || !window.REGISTRO) return;
     var march = window.HTIryo.getMarch();
     if (!march || !march.t) return;
-    var turno = window.REGISTRO.getOrCreateActiveTurno
-      ? window.REGISTRO.getOrCreateActiveTurno()
-      : window.REGISTRO.getActiveTurno();
-    if (!turno) return;
-    var svc = turno.servicios && turno.servicios[0];
-    if (!svc || svc.servicioComercial) return; // solo si el turno está vacío
-    applyMarchToSvc(svc, march.t);
+    var c = svcCtx(true);
+    if (!c) return;
+    if (c.svc.servicioComercial) return; // solo si el servicio activo está vacío
+    applyMarchToSvc(c.svc, march.t);
     window.dispatchEvent(new CustomEvent('iryo:marchaApplied', { detail: march }));
     if (window.REGISTRO.refreshEditor) window.REGISTRO.refreshEditor();
   }
@@ -171,10 +187,9 @@
     if (!window.HTIryo || !window.HTIryo.getStopDelays || !window.REGISTRO) return;
     var march = window.HTIryo.getMarch();
     if (!march || !march.t) return;
-    var turno = window.REGISTRO.getActiveTurno && window.REGISTRO.getActiveTurno();
-    if (!turno) return;
-    var svc = turno.servicios && turno.servicios[0];
-    if (!svc) return;
+    var c = svcCtx(false);
+    if (!c) return;
+    var svc = c.svc;
     // FIX transversal: si svc tiene número pero NO paradas, intentar
     // rellenar el tramo ahora (HT puede haber detectado leg después).
     var needsTramo = svc.servicioComercial === String(march.t)
@@ -253,12 +268,9 @@
     window.HTIryo.onMarchaChange(function () {
       var march = window.HTIryo.getMarch();
       if (!march || !march.t || !window.REGISTRO) return;
-      var turno = window.REGISTRO.getOrCreateActiveTurno
-        ? window.REGISTRO.getOrCreateActiveTurno()
-        : window.REGISTRO.getActiveTurno();
-      if (!turno) return;
-      var svc = turno.servicios && turno.servicios[0];
-      if (!svc) return;
+      var c = svcCtx(true);
+      if (!c) return;
+      var svc = c.svc;
       // Mismo servicio ya asignado: re-aplicar SOLO si svc.paradas está vacío
       // (caso transversal: detectActiveLeg activó el tramo después del primer
       // onMarchaChange — re-evaluar ahora que HT.getActiveLegInfo da tramo).
@@ -286,9 +298,20 @@
         // Servicio ya terminado → aplicar sin aviso.
         doApply();
       } else {
-        // Servicio en curso → confirmar antes de reemplazar.
-        if (confirm('Hay un servicio activo (' + svc.servicioComercial +
-            '). ¿Reemplazar por ' + march.t + '?')) {
+        // Servicio en curso → confirmar antes de reemplazar (modal propio,
+        // no confirm() nativo que bloquea el hilo).
+        var msg = 'Hay un servicio activo (' + svc.servicioComercial +
+          '). ¿Reemplazar por ' + march.t + '?';
+        if (window.appModal && window.appModal.confirm) {
+          window.appModal.confirm({
+            title: 'Cambiar servicio activo',
+            message: msg,
+            buttons: [
+              { label: 'Cancelar', value: false, kind: 'neutral' },
+              { label: 'Reemplazar', value: true, kind: 'danger' }
+            ]
+          }).then(function (ok) { if (ok) doApply(); });
+        } else if (confirm(msg)) {
           doApply();
         }
       }
