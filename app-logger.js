@@ -703,8 +703,17 @@
   function snapshotToSend(){
     try {
       if(localStorage.getItem(TOSEND_KEY)) return false;
+      // Garantizar el resumen ANTES de congelar el buffer: si el log se envía sin
+      // pasar por tracking_stop (autoenvío en la última estación, recuperación,
+      // vuelta de 'online'…), aún no hay session_summary. Se monta aquí con los
+      // contadores en vivo para que el log salga completo siempre, se pulse parar
+      // o no. emitSessionSummary es repetible sin doble-contar (reabre gpsStateTs).
       var arr = loadLogArr();
       if(!arr || !arr.length) return false;
+      if(trackingStartTs && !arr.some(function(e){ return e.cat==='gps' && e.msg==='session_summary'; })){
+        emitSessionSummary();
+        arr = loadLogArr();   // recargar para incluir el resumen recién añadido
+      }
       localStorage.setItem(TOSEND_KEY, arrToNdjson(arr));
       clearLogArr(); // invariante: log ya movido a TOSEND (resetea caché + LOG_KEY)
       return true;
@@ -764,6 +773,8 @@
     var now = nowMs();
     var durS = trackingStartTs ? Math.round((now - trackingStartTs) / 1000) : null;
     timeInState[gpsState] = (timeInState[gpsState] || 0) + (now - gpsStateTs);
+    gpsStateTs = now;   // reabrir el contador: emitSessionSummary se puede llamar
+                        // varias veces (al enviar el log Y al parar) sin doble-contar
     var stateS = {};
     for(var s in timeInState) stateS[s] = Math.round(timeInState[s] / 1000);
     appendEntry('info', 'gps', 'session_summary', {
