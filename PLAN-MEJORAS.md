@@ -210,3 +210,15 @@ tanda, tras el cambio de nombre a "EnRuta").
   salida; llegada = `s.h − (c+tc)`. §3 (nombre "EnRuta") y §5 (BSL) quedan pendientes.
   Versiones: studio-v24→v25, iryostudio-v11→v12, cache SW v31→v32. Detectado trabajo
   paralelo en `registro.js` (commits `87c1a6f`, `a8d10f5`) que no entra en conflicto.
+- **2026-06-27** — **§4b Fase 1 (doble marca llegada/salida, MANUAL)** implementada en
+  `index.html` (ver §4b). Versiones studio-v25→v26, iryostudio-v12→v13, cache SW v32→v33.
+  Pendiente: probar, replicar en `horario.html`, Fase 2 (GPS automático).
+- **2026-06-27** — **Hallazgo de campo (servicio 6203, Valencia→Madrid):** las paradas de
+  Valencia a Requena se marcan **a posteriori** (después de pasar la estación, no en ella).
+  El dueño nota **asimetría de sentido**: "para bajar" (Madrid→Valencia) marcaba mejor que
+  "para volver" (Valencia→Madrid, 6203). Reabre el problema conocido del marcado tardío
+  (CPA confirma al alejarse + huecos de muestreo GPS; ya se subió `timeout` 10→15 s y
+  `maximumAge` 0→3 s). **Pendiente de DATOS:** analizar el log del 6203 al terminar el
+  servicio para ver si la asimetría es geometría de ruta (LINES), offset de coordenadas
+  por sentido, o cadencia de sondeo. No tocar a ciegas. El acelerómetro (PLAN-ACELEROMETRO)
+  también mitigaría este caso.
