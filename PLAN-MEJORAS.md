@@ -103,6 +103,42 @@ Pasos/origen/destino siguen mostrando una sola hora.
 > `registro.js` (módulo de **registro de viajes RV**, vista distinta del libro). No
 > duplica este cambio.
 
+### 4b. DOBLE MARCA real (llegada + salida) — corrección del dueño (27-06)
+
+Lo de mostrar las horas teóricas está bien, **pero falta lo principal**: en una parada
+intermedia hay que poder poner **DOS marcas reales**: la de **llegada** y la de **salida**.
+Ej.: Cuenca-Fernando Zóbel, parada comercial 2 min → llegada real + salida real (dos
+marcas), cada una con su retraso/adelanto.
+
+**Lo que hay hoy (un solo slot por estación):**
+- Almacén: `punches[tickKey][rowMarkKey(idx)]` = **una** hora; `markSource` = fuente
+  (`index.html:4126-4153`).
+- Render: cada `td.actual` tiene **un** slot (botón "marcar" o la marca con ×)
+  (`applyPunches`, `:4590`).
+- Manual: `punchAt(idx)` graba **una** marca (`:4780`). GPS: `HTIryo.setMark` **una**.
+- El GPS marca el paso por CPA (≈ llegada al andén) y **avanza** a la siguiente; no hay
+  concepto de "salida".
+
+**Lo que implica el doble marcado (rediseño, toca el núcleo):**
+1. **Almacén:** dos claves por parada, p. ej. `rowMarkKey(idx)+'|a'` (llegada) y `+'|d'`
+   (salida); las estaciones de paso siguen con una sola.
+2. **Render (`applyPunches`):** en paradas, la celda "Hora real" con **dos sub-marcas**
+   (llegada / salida), cada una marcable y borrable.
+3. **Manual (`punchAt`):** en paradas, dos botones ("Llegada" / "Salida").
+4. **GPS (`gps-tracking.js`, lo más delicado):** el detector de **PARADO** ya sabe
+   cuándo el tren **llega y se detiene** (`enterStoppedMode` = llegada) y cuándo
+   **arranca** (`exitStoppedMode` = salida). Encaja perfecto, PERO hoy el GPS marca y
+   **avanza**; habría que: marcar **llegada** al detenerse, **no avanzar**, esperar el
+   arranque, marcar **salida**, y entonces avanzar. Cambio sensible del flujo GPS.
+5. **`getStopDelays`:** usar la llegada y la salida **reales** (hoy deriva del único
+   valor). El RV (`registro.js`) ya distingue `_rLleg`/`_rSal` → coordinar para no chocar.
+
+**Decisión que necesita el dueño:** ¿cómo se ponen las dos marcas? (ver pregunta).
+
+**Estado:** investigado; rediseño estructural. **Pendiente de decisión + implementación.**
+**No implementado** (no se toca el núcleo de marcado ni el GPS sin confirmar el diseño,
+y hay sesión paralela en el área de retrasos por parada).
+
 ---
 
 ## 5. FUNCIÓN NUEVA — Botón "BSL": aviso de zona neutra / LTV con sonido
