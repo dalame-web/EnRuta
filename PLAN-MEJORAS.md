@@ -135,9 +135,28 @@ marcas), cada una con su retraso/adelanto.
 
 **Decisión que necesita el dueño:** ¿cómo se ponen las dos marcas? (ver pregunta).
 
-**Estado:** investigado; rediseño estructural. **Pendiente de decisión + implementación.**
-**No implementado** (no se toca el núcleo de marcado ni el GPS sin confirmar el diseño,
-y hay sesión paralela en el área de retrasos por parada).
+**Decisión del dueño (27-06):** **GPS automático + manual** (GPS marca llegada al parar y
+salida al arrancar; el maquinista corrige a mano).
+
+**FASE 1 HECHA (solo `index.html`, marcado MANUAL + estructura):**
+- `isStopRow(idx)` + `markKeyK(idx,kind)`: la **salida** usa la clave base (compat total
+  GPS/getStopDelays/RV); la **llegada** usa `clavebase|a`.
+- `getMarkAt/setMarkAt/clearMarkAt` aceptan `kind` ('a' llegada / sin kind = salida).
+- `applyPunches` + `punchSlotHtml`: en paradas, celda "Hora real" con **dos sub-marcas**
+  apiladas (L=llegada / S=salida), cada una con su botón "marcar" y su × de borrado.
+- `punchAt/clearPunch` con `kind`; manejador de clics lee `data-kind`. En paradas se
+  marca solo con los botones (no al tocar la fila). CSS de los slots añadido.
+- Validado: sintaxis OK; test lógico de claves (Cuenca parada → `|a` y base; pasos →
+  clave única). Versiones studio-v25→v26, iryostudio-v12→v13, cache SW v32→v33.
+
+**PENDIENTE:**
+- **Probar Fase 1** en navegador/tablet (marcar L y S a mano en una parada).
+- **Replicar en `horario.html`** (mismas funciones).
+- **FASE 2 — GPS automático:** que el GPS marque la **llegada** (`|a`) al detenerse
+  (`enterStoppedMode`) y la **salida** (clave base) al arrancar (`exitStoppedMode`),
+  ampliando `HTIryo.setMark` con `kind` y ajustando el flujo en `gps-tracking.js`.
+- Hoy en Fase 1 el GPS sigue marcando UNA (la salida/clave base); el doble automático es
+  la Fase 2.
 
 ---
 
