@@ -87,37 +87,35 @@ Coherente y deliberado: *no fabricar un paso cuando el tren está parado, desvia
 
 ---
 
-## 5. Estimación de retraso por DHLTV: por qué es difícil (ETCS / LZB / balizas)
+## 5. Estimación de retraso por DHLTV: no es viable predecirla (y no hace falta)
 
-> Aportación del maquinista (dueño), capturada para diseño. No está implementado; es
-> el motivo por el que **no basta** con leer los PK del PDF para estimar el retraso.
+> Aportación del maquinista (dueño). Corrige la idea inicial de "estimar el retraso
+> leyendo el PDF": en la práctica **no se puede** y **no es necesario**.
 
-El DHLTV da PK nominales (`km_ini`, `km_fin`) y `vmax`. Pero **lo que el tren aplica
-físicamente no coincide 1:1** con esos PK, por dos motivos encadenados:
+El DHLTV da PK nominales (`km_ini`, `km_fin`) y `vmax`. Para **predecir** cuánto retraso
+causa una LTV harían falta datos que **el maquinista NO tiene** y que **no están en el
+PDF**:
 
-1. **Refresco por balizas.** En líneas cuyo sistema refresca la información de velocidad
-   **al pasar por balizas**, si la LTV cae **entre dos balizas**, el tren aplica la
-   restricción en el **tramo entre balizas** (desde la baliza que la anuncia), no en los
-   PK reales de la LTV. El maquinista **debe reducir la velocidad ANTES** de esa baliza.
-   → La zona efectivamente restringida es **más amplia** que `[km_ini, km_fin]`.
+1. El **sistema de señalización** de cada tramo (ETCS L1/L2 o LZB). Según el sistema, los
+   PK que el tren "ve" para la LTV son los reales o **más amplios**.
+2. La **posición de las balizas**. En sistemas que refrescan la velocidad **al pasar por
+   balizas**, si la LTV cae **entre dos balizas** el tren aplica la restricción en el
+   **tramo entre balizas** (no en los PK reales) y **reduce velocidad ANTES** de la baliza.
+3. Las **curvas de frenado/aceleración** del tren (frena antes del inicio y acelera
+   después del final → el tiempo perdido se extiende por las rampas).
 
-2. **Sistema de señalización (ETCS vs LZB).** Según el sistema embarcado, los PK que el
-   tren "ve" para la LTV son los **reales** o **más amplios**. La conversión PK-nominal →
-   zona-aplicada **depende de la línea y su sistema**.
+El maquinista **solo maneja el DHLTV y lo que ve en el tren**; **no dispone** de esos
+datos de infraestructura. Por tanto, un modelo **predictivo** del retraso por LTV **no es
+fiable** y queda **descartado**.
 
-3. **Dinámica del tren.** No cambia de velocidad de golpe: **frena antes** del inicio y
-   **acelera después** del final. El tiempo perdido se extiende por las **rampas** de
-   deceleración/aceleración, más allá de la longitud nominal de la LTV.
+**Y no hace falta:** la app no predice el retraso de la LTV, lo **mide**. Cuando el tren
+reduce para hacer la LTV, el GPS ve bajar la velocidad, el tren tarda más en llegar a la
+siguiente estación y la app lo refleja en vivo (`provisionalDelay`, §1). El retraso real
+aparece **observado**, sin saber nada de ETCS/LZB ni de balizas. El **DHLTV cumple su
+papel siendo visual**: mostrar en el libro dónde están las limitaciones.
 
-**Consecuencia para cualquier estimador futuro de retraso por LTV:** usar solo
-`[km_ini, km_fin]` y `vmax` **infravalora** el tiempo perdido. Un modelo fiel
-necesitaría, como mínimo:
-- el **sistema de señalización por línea** (ETCS L1/L2 o LZB),
-- la **posición de las balizas** (para la zona efectiva cuando el refresco es por baliza),
-- la **dinámica de frenado/aceleración** del tren (rampas).
-
-Es **complejo y dependiente de datos** que el PDF DHLTV no contiene. Cualquier
-implementación debe partir de datos **verificados por línea**, no de supuestos.
+Principio del proyecto: **se mide lo que el tren hace de verdad (GPS), no se intenta
+adivinar desde el documento.**
 
 ---
 
@@ -138,8 +136,18 @@ Una marcha reducida por señal (30-60 km/h) **no** dispara PARADO; solo el gateo
 sostenido <3 km/h. Riesgo bajo.
 
 **d) `ltvWait` y DHLTV desconectados.** La app **no** usa las LTV reales del PDF para
-anticipar el retraso (ver §5: hacerlo bien es complejo). Hoy `ltvWait` actúa solo por
+anticipar el retraso (ver §5: no es viable ni necesario). Hoy `ltvWait` actúa solo por
 distancia.
+
+**e) BUG — "Retraso creciendo: +X min" sale también yendo con ADELANTO.**
+`gps-tracking.js:1225` (y el equivalente del checkpoint, `:847`) escriben el texto
+`"Retraso creciendo: +"` de forma **fija**, y `fmtDur` (`:231`) hace `Math.abs(min)`, que
+**elimina el signo**. El disparo (`:1211`, `nowMNow > effNow + 0.5`) salta cuando el tren
+pierde tiempo respecto a su **propio ritmo**, aunque el delta total (`prov`) siga siendo
+**negativo (adelanto)**. Resultado real: yendo 3 min adelantado y perdiendo 1 min, muestra
+*"Retraso creciendo: +2 min"* cuando en realidad **sigues 2 min adelantado**.
+**Dirección de arreglo (pendiente):** el texto y el signo deben depender del signo de
+`prov` (>0 → retraso `+`; <0 → adelanto `−`), no ir fijos. Aplica a `:1225` y `:847`.
 
 ---
 
@@ -166,4 +174,19 @@ El **único hueco real y grave** es el **(a)**: PARADO no puede observarse en t�
 solo GPS — lo que el acelerómetro resuelve. La **estimación de retraso por DHLTV** (§5)
 es deseable pero **compleja**: depende de ETCS/LZB, balizas y dinámica del tren; no se
 puede hacer fiable solo con los PK del PDF. El resto son decisiones defendibles, no
-errores.
+errores —salvo el BUG §6e (mensaje "Retraso creciendo" con adelanto), pendiente de arreglo.
+
+---
+
+## 9. Registro de cambios
+
+Toda modificación de código o hallazgo de auditoría relacionado con LTV/parado/retraso se
+anota aquí, para que quede todo registrado.
+
+- **2026-06-27** — Auditoría inicial (§1-§8).
+- **2026-06-27** — §5 corregido: la estimación predictiva del retraso por LTV **no es
+  viable** (el maquinista no dispone de datos de línea: ETCS/LZB, balizas, frenado) **ni
+  necesaria** (el GPS ya mide el retraso real de forma observacional).
+- **2026-06-27** — Hallazgo **§6e**: el mensaje *"Retraso creciendo: +X"* aparece también
+  yendo con adelanto. Causa: `fmtDur` con `Math.abs` + texto/signo fijos en
+  `gps-tracking.js:1225` y `:847`. **Pendiente de arreglo en código.**
