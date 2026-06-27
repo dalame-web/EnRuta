@@ -12,7 +12,7 @@
   // ===== Constantes =====
   var K_TURNOS = 'rviryo_turnos_v1';
   var K_SETTINGS = 'rviryo_settings_v1';
-  var APP_VERSION = 'iryostudio-v10';
+  var APP_VERSION = 'iryostudio-v11';
 
   var COMPROBACIONES = [
     'Arranque rama', 'Estado Pantógrafo', 'DAT/DHLTV', 'ASFA', 'ETCS/LZB',
@@ -206,6 +206,17 @@
       // Migración LTV global → servicio 0
       if (si === 0 && !s.horaLTV && t.horaLTV) s.horaLTV = t.horaLTV;
       if (!s.paradas) s.paradas = [];
+      // Recuperar tParada del Libro de Horarios si está a 0 (turnos guardados
+      // antes de que autofillServicio lo mapeara). Sin esto, las paradas
+      // intermedias comerciales no muestran H. Llegada.
+      var hr = null;
+      if (s.servicioComercial && horarios && horarios.length) {
+        hr = horarios.find(function (h) {
+          return String(h.servicio) === String(s.servicioComercial) &&
+                 (!s.origen || h.origen === s.origen) &&
+                 (!s.destino || h.destino === s.destino);
+        });
+      }
       s.paradas.forEach(function (p) {
         if (p.tParada == null) p.tParada = 0;
         if (p.hLleg == null) p.hLleg = '';
@@ -214,6 +225,11 @@
         if (p.viajeros == null) p.viajeros = '';
         if (p.asistencias == null) p.asistencias = '';
         if (!Array.isArray(p.pmr)) p.pmr = [];
+        // Si tParada=0 y la encontramos en el horario con valor mayor → rellenar.
+        if (!p.tParada && hr && p.nombre) {
+          var hp = hr.paradas.find(function (x) { return x.nombre === p.nombre; });
+          if (hp && hp.tParada > 0) p.tParada = hp.tParada;
+        }
       });
       if (!s.dibujos) s.dibujos = [];
       // Migración plazasH (string/numero) → pmr (array)

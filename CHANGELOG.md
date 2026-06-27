@@ -6,6 +6,20 @@ archivo.
 El formato está basado en [Keep a Changelog](https://keepachangelog.com/es-ES/1.1.0/)
 y este proyecto sigue [SemVer](https://semver.org/lang/es/).
 
+## [iryostudio-v11]
+
+### Fixed (2026-06-20 — H. Llegada en paradas intermedias)
+- **Paradas intermedias mostraban solo H. Salida, sin H. Llegada** (`registro.js`
+  `normTurno`): turnos guardados antes de que `autofillServicio` mapeara `tParada`
+  tenían las paradas con `tParada=0`, así que `subMinutos(p.hora, p.tParada)`
+  daba '' y el render omitía la fila. Ahora `normTurno` recupera `tParada` desde
+  el Libro de Horarios (busca por `servicioComercial + nombre de parada`), así
+  los turnos antiguos se reparan al cargar. Cada parada intermedia muestra:
+  - **H. Llegada** = `H. Salida − tParada (Com)` con su delta independiente (rLleg).
+  - **H. Salida** = hora teórica del Libro de Horarios con su delta (rSal).
+  - Si los deltas difieren (p.ej. llega +3, para más de lo concedido y sale +5)
+    se reflejan por separado en ambas filas.
+
 ## [iryostudio-v10]
 
 ### Fixed (2026-06-20 — retrasos por parada + colores + comprobar update)
