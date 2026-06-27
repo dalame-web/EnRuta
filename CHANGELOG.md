@@ -6,7 +6,29 @@ archivo.
 El formato está basado en [Keep a Changelog](https://keepachangelog.com/es-ES/1.1.0/)
 y este proyecto sigue [SemVer](https://semver.org/lang/es/).
 
-## [iryostudio-v3]
+## [iryostudio-v10]
+
+### Fixed (2026-06-20 — retrasos por parada + colores + comprobar update)
+- **Retrasos contaminados en paradas pasadas sin marca** (`index.html`
+  `getStopDelays` + `app.js` `applyDelaysToSvc`): si llegabas a destino con −3 sin
+  haber picado el origen, el −3 se grababa también en el origen. Ahora la función
+  distingue `frozen` (parada con marca real → definitivo, no se machaca nunca) de
+  `live` (parada futura → delta en vivo del GPS, sobrescribible). Las paradas
+  pasadas SIN marca real ya no reciben valor del delta. `applyDelaysToSvc` respeta
+  los campos congelados (`_rSalidaFrozen`, `_rLlegFrozen`, etc.) y nunca borra
+  valores ya grabados.
+- **Color del retraso/adelanto** (`index.html` CSS + `registro.js`): adelantos
+  (negativos) ahora en verde — consistente con el delta de la pestaña Horario.
+  Retrasos (positivos) en rojo. Aplica al botón de retraso y a la "hora real".
+- **"Al día" mentiroso seguido del banner "Nueva versión disponible"**
+  (`registro.js` `check-update`): el botón mostraba "Al día" a los 2,5 s sin
+  consultar el resultado real. Ahora escucha `updatefound` + `statechange='installed'`
+  con controlador previo (la señal real); muestra "Nueva versión disponible" si llega
+  un SW nuevo, "Al día" solo si no aparece nada en 5 s, y detecta también el SW que
+  ya estaba esperando antes de pulsar el botón.
+
+### Changed (2026-06-20 — versiones)
+- `APP_VERSION` y `STUDIO_VER`: v9 → v10. SW: v29 → v30.
 
 ### Fixed (2026-06-20 — cross-feed Horario→2º servicio)
 - **La marcha de Horario siempre caía en el 1er servicio** (`app.js` cross-feed): las

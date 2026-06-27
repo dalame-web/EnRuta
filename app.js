@@ -168,13 +168,31 @@
   });
 
   // === Cross-feed: Retrasos HT → Registro ===
+  // Reglas:
+  //   - Valor frozen (marca real) → siempre escribir, marca el campo como
+  //     congelado para que no se machaque después.
+  //   - Valor live (delta en vivo) → solo escribir si el campo NO está congelado.
+  //   - delays sin valor para un campo → NO tocar lo grabado (preservar).
   function applyDelaysToSvc(svc, delays) {
     if (!svc || !delays) return;
-    if (delays.rSalida) svc.rSalida = delays.rSalida;
-    if (delays.rLlegDestino) svc.rLlegDestino = delays.rLlegDestino;
+    function applyField(field, frozenField, value, frozen) {
+      if (!value) return;                       // sin valor: no tocar
+      if (frozen) { svc[field] = value; svc[frozenField] = true; return; }
+      if (svc[frozenField]) return;              // ya congelado: no machacar
+      svc[field] = value;                        // live sobre campo no congelado
+    }
+    applyField('rSalida', '_rSalidaFrozen', delays.rSalida, delays.rSalidaFrozen);
+    applyField('rLlegDestino', '_rLlegDestinoFrozen', delays.rLlegDestino, delays.rLlegDestinoFrozen);
     (svc.paradas || []).forEach(function (p) {
       var d = delays.paradas && delays.paradas[p.nombre];
-      if (d) { p.rLleg = d.rLleg; p.rSal = d.rSal; }
+      if (!d) return;
+      if (d.frozen) {
+        p.rLleg = d.rLleg; p.rSal = d.rSal;
+        p._rLlegFrozen = true; p._rSalFrozen = true;
+        return;
+      }
+      if (!p._rLlegFrozen) p.rLleg = d.rLleg;
+      if (!p._rSalFrozen) p.rSal = d.rSal;
     });
   }
 

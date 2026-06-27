@@ -12,7 +12,7 @@
   // ===== Constantes =====
   var K_TURNOS = 'rviryo_turnos_v1';
   var K_SETTINGS = 'rviryo_settings_v1';
-  var APP_VERSION = 'iryostudio-v9';
+  var APP_VERSION = 'iryostudio-v10';
 
   var COMPROBACIONES = [
     'Arranque rama', 'Estado Pantógrafo', 'DAT/DHLTV', 'ASFA', 'ETCS/LZB',
@@ -575,7 +575,8 @@
     }
     var min = parseRetraso(val);
     if (min != null && isFinite(min) && min !== 0) {
-      return '<button class="ret-val" data-action="ret-edit" ' +
+      var cls = 'ret-val' + (min < 0 ? ' early' : '');
+      return '<button class="' + cls + '" data-action="ret-edit" ' +
         'data-ret-bind="' + esc(bind) + '">' + fmtRetraso(min) + ' ✎</button>';
     }
     return '<button class="ret-add" data-action="ret-edit" ' +
@@ -624,7 +625,7 @@
       } else {
         h += '<span class="st-h">' + esc(cfg.horaLlegada) + '</span>';
       }
-      if (horaRealLleg) h += '<span class="st-real">' + horaRealLleg + '</span>';
+      if (horaRealLleg) h += '<span class="st-real' + (retLlegMin < 0 ? ' early' : '') + '">' + horaRealLleg + '</span>';
       h += '</div>' + retInlineHtml(cfg.bindRetLleg, cfg.valRetLleg) + '</div>';
     }
     if (cfg.horaSalida || cfg.editSalida) {
@@ -638,7 +639,7 @@
       } else {
         h += '<span class="st-h">' + esc(cfg.horaSalida) + '</span>';
       }
-      if (horaRealSal) h += '<span class="st-real">' + horaRealSal + '</span>';
+      if (horaRealSal) h += '<span class="st-real' + (retSalMin < 0 ? ' early' : '') + '">' + horaRealSal + '</span>';
       h += '</div>' + retInlineHtml(cfg.bindRetSal, cfg.valRetSal) + '</div>';
     }
     h += '</div>';
@@ -1734,11 +1735,41 @@
           appModal.alert({ title: 'Sin Service Worker', message: 'Aún no hay Service Worker. Recarga la página primero.' });
           return;
         }
+        // Si YA hay un SW esperando antes de llamar a update() → nueva versión
+        // ya descargada en una comprobación previa. Avisar y no decir "Al día".
+        if (reg.waiting) {
+          appModal.alert({ title: 'Nueva versión disponible', message: 'Hay una versión nueva lista. Pulsa "Actualizar" en el aviso inferior para aplicarla.' });
+          return;
+        }
+        var decided = false;
+        function detectNewWorker() {
+          var nw = reg.installing;
+          if (!nw) return false;
+          nw.addEventListener('statechange', function () {
+            if (decided) return;
+            if (nw.state === 'installed' && navigator.serviceWorker.controller) {
+              decided = true;
+              appModal.alert({ title: 'Nueva versión disponible', message: 'Hay una versión nueva lista. Pulsa "Actualizar" en el aviso inferior para aplicarla.' });
+            }
+          });
+          return true;
+        }
         reg.update().then(function () {
+          // Si update() arrancó una instalación, esperamos al statechange.
+          // Si no, también escuchamos por si llega después (carrera).
+          detectNewWorker();
+          var onFound = function () { detectNewWorker(); };
+          reg.addEventListener('updatefound', onFound);
+          // Ventana de espera: si en 5 s no aparece SW nuevo → realmente al día.
           setTimeout(function () {
+            reg.removeEventListener('updatefound', onFound);
+            if (decided) return;
+            decided = true;
             appModal.alert({ title: 'Al día', message: 'Ya tienes la última versión.' });
-          }, 2500);
+          }, 5000);
         }).catch(function () {
+          if (decided) return;
+          decided = true;
           appModal.alert({ title: 'Sin conexión', message: 'No se pudo comprobar la actualización. ¿Tienes conexión?' });
         });
       });

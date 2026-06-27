@@ -1194,9 +1194,12 @@
   }
   .ret-add:hover{border-color:var(--accent); color:var(--accent)}
   .ret-val{
-    background:rgba(240,136,62,.12); border:1px solid var(--warn);
-    border-radius:6px; padding:3px 8px; color:var(--warn);
+    background:rgba(248,81,73,.12); border:1px solid var(--bad);
+    border-radius:6px; padding:3px 8px; color:var(--bad);
     cursor:pointer; font-size:12px; font-weight:600; min-height:30px;
+  }
+  .ret-val.early{
+    background:rgba(63,185,80,.14); border-color:var(--ok); color:var(--ok);
   }
   .ret-input{
     flex:0 0 110px; min-height:32px; padding:4px 8px; font-size:13px;
@@ -1204,9 +1207,10 @@
   .st-time-col{ display:flex; flex-direction:column; gap:2px; flex:0 0 auto; }
   .st-real{
     font-family:monospace; font-size:13px; font-weight:700;
-    color:var(--warn); background:rgba(240,136,62,.1);
+    color:var(--bad); background:rgba(248,81,73,.1);
     border-radius:4px; padding:2px 7px;
   }
+  .st-real.early{ color:var(--ok); background:rgba(63,185,80,.12); }
 
   .st-pax{display:flex; flex-direction:column; gap:6px}
   .pax-block{display:flex; flex-direction:column; gap:6px}
@@ -5287,8 +5291,13 @@ window.addEventListener('unload', ebulaClearAllData);
         applyPunches(); updatePosition();
         try { window.dispatchEvent(new CustomEvent('iryo:htDelaysChanged')); } catch(e){}
       },
-      // Devuelve retrasos calculados de paradas comerciales del servicio activo.
-      // Estructura: { rSalida, rLlegDestino, paradas: { nombre: { rLleg, rSal } } }
+      // Devuelve retrasos por parada comercial. Distingue claramente:
+      //   - "frozen": parada con marca real (pasada y picada) → valor definitivo.
+      //   - "live":   parada futura sin marca → delta provisional del GPS.
+      //   - paradas pasadas SIN marca (p.ej. origen no picado) → NO se devuelven,
+      //     para no contaminarlas con un delta de paradas posteriores.
+      // Estructura: { rSalida, rSalidaFrozen, rLlegDestino, rLlegDestinoFrozen,
+      //               paradas: { nombre: { rLleg, rSal, frozen } } }
       getStopDelays: function(){
         if(!march || !march.s) return null;
         function diffMin(real, teor){
@@ -5298,34 +5307,44 @@ window.addEventListener('unload', ebulaClearAllData);
         }
         function fmt(d){ return d > 0 ? '+' + d : String(d); }
         var stops = march.s, last = stops.length - 1;
-        // Retraso en vivo del GPS para paradas AÚN NO pasadas (sin marca).
-        // Las paradas ya pasadas usan su marca real → quedan congeladas.
         var prov = (provisionalDelay != null) ? Math.round(provisionalDelay) : null;
-        // Lee la marca por ambas claves: por nombre (canónica, migrada) y por
-        // índice numérico (marca recién puesta por setMark, aún sin migrar). El
-        // cross-feed se dispara dentro de setMark, antes de migrateMarkKeys.
+        // Lee la marca por ambas claves: por nombre (canónica) y por índice
+        // (marca recién puesta antes de migrateMarkKeys).
         function markAt(idx){
           var m = getMarkAt(idx);
           if(m != null) return m;
           return (punches[tickKey()] || {})[idx];
         }
+        // lastPassed = mayor índice con marca real. -1 si no hay ninguna.
+        var lastPassed = -1;
+        for(var k = 0; k < stops.length; k++){ if(markAt(k) != null) lastPassed = k; }
+        // Devuelve { v, frozen } o null. Frozen = marca real → definitivo.
         function delayFor(idx, schedH){
           var marked = markAt(idx);
-          if(marked) return diffMin(marked, schedH); // congelado
-          return prov;                                // en vivo (o null)
+          if(marked){
+            var d = diffMin(marked, schedH);
+            return d != null ? { v: fmt(d), frozen: true } : null;
+          }
+          // Sin marca: solo dar valor si es la parada actual o futura.
+          // Las pasadas sin marca → null (no se tocan en el modelo).
+          if(prov == null) return null;
+          if(idx <= lastPassed) return null;
+          return { v: fmt(prov), frozen: false };
         }
-        var origenDelay = delayFor(0, stops[0] && stops[0].h);
-        var destDelay = delayFor(last, stops[last] && stops[last].h);
+        var oRes = delayFor(0, stops[0] && stops[0].h);
+        var dRes = delayFor(last, stops[last] && stops[last].h);
         var paradas = {};
         for(var i = 1; i < last; i++){
           var s = stops[i];
           if(s._l010cdi || !s.c) continue;
-          var d = delayFor(i, s.h);
-          if(d != null) paradas[s.n] = { rLleg: fmt(d), rSal: fmt(d) };
+          var r = delayFor(i, s.h);
+          if(r != null) paradas[s.n] = { rLleg: r.v, rSal: r.v, frozen: r.frozen };
         }
         return {
-          rSalida: origenDelay != null ? fmt(origenDelay) : '',
-          rLlegDestino: destDelay != null ? fmt(destDelay) : '',
+          rSalida:            oRes ? oRes.v : '',
+          rSalidaFrozen:      !!(oRes && oRes.frozen),
+          rLlegDestino:       dRes ? dRes.v : '',
+          rLlegDestinoFrozen: !!(dRes && dRes.frozen),
           paradas: paradas
         };
       },
@@ -6186,15 +6205,15 @@ renderLTVList();
 (function showSwVersion(){
   const el = document.getElementById('sw-version'); if(!el) return;
   const ORIGINAL_VER = 'ebula-v82';
-  const STUDIO_VER   = 'iryostudio-v9';
+  const STUDIO_VER   = 'iryostudio-v10';
   const LOC_VER      = 'loc.-V25';
   el.textContent = ORIGINAL_VER + ' | ' + STUDIO_VER + ' | ' + LOC_VER;
 })();
 
 </script>
 <script src="data.js?v=202605272315"></script>
-<script src="registro.js?v=202606201600"></script>
-<script src="app.js?v=202606201400"></script>
+<script src="registro.js?v=202606201800"></script>
+<script src="app.js?v=202606201800"></script>
 <script src="app-logger.js?v=202606171200"></script>
 <script src="gps-tracking.js?v=202606171200"></script>
 </body>
