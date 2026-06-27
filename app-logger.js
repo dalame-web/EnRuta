@@ -157,6 +157,7 @@
   var signalLostTs    = null;   // cuándo entramos en 'lost'
   var trackingStartTs = null;
   var ttffEmitted     = false;
+  var lastGpsSpeed    = null;   // m/s del último fix fine — correlación con vibración (acelerómetro)
 
   // ---- Pulse (resumen cada 60 s) -----------------------------------------------
   var pulseWindow = [];
@@ -287,6 +288,89 @@
   function startPulse(){ if(pulseTimer) clearInterval(pulseTimer); pulseTimer = setInterval(emitPulse, PULSE_INTERVAL_MS); }
   function stopPulse(){  if(pulseTimer){ clearInterval(pulseTimer); pulseTimer = null; } emitPulse(); }
 
+  // ---- Acelerómetro: medición de vibración (FASE 1 — solo medir) ----------------
+  // Objetivo: registrar el RMS de vibración junto a la velocidad GPS para calibrar
+  // con datos reales el umbral parado/movimiento usable en túnel (sin GPS). NO
+  // cambia el marcado. Ver PLAN-ACELEROMETRO.md.
+  var ACCEL_EMIT_MS           = 20000;  // muestra agregada cada 20 s
+  var ACCEL_TOUCH_COOLDOWN_MS = 4000;   // tras tocar la pantalla, standby N s (anti-ruido)
+  var accelSupported = (typeof window.DeviceMotionEvent !== 'undefined');
+  var accelOn        = false;
+  var accelTimer     = null;
+  var accelSamples   = [];   // magnitudes |a| de la ventana actual
+  var accelIntervals = [];   // event.interval reportados (ms)
+  var lastTouchTs    = 0;
+
+  // Bloqueo por interacción: si se está tocando la tablet, las muestras son ruido.
+  function accelInteracting(){ return (nowMs() - lastTouchTs) < ACCEL_TOUCH_COOLDOWN_MS; }
+  ['pointerdown','pointermove','touchstart','touchmove','wheel','keydown'].forEach(function(evt){
+    try { window.addEventListener(evt, function(){ lastTouchTs = nowMs(); }, { passive:true, capture:true }); } catch(e){}
+  });
+
+  function onDeviceMotion(ev){
+    if(accelInteracting()) return;   // standby mientras se interactúa
+    var a = ev.accelerationIncludingGravity;
+    if(!a || a.x == null) return;
+    var mag = Math.sqrt(a.x*a.x + a.y*a.y + a.z*a.z);
+    accelSamples.push(mag);
+    if(ev.interval) accelIntervals.push(ev.interval);
+    if(accelSamples.length > 4000) accelSamples.shift();   // cap defensivo (60Hz·20s≈1200)
+  }
+
+  function emitAccelSample(){
+    var n = accelSamples.length;
+    var rms = null;
+    if(n >= 5){
+      var sum = 0, i; for(i=0;i<n;i++) sum += accelSamples[i];
+      var mean = sum / n;
+      var sq = 0; for(i=0;i<n;i++){ var d = accelSamples[i]-mean; sq += d*d; }
+      rms = Math.sqrt(sq / n);
+    }
+    var avgInt = accelIntervals.length
+      ? accelIntervals.reduce(function(s,v){ return s+v; },0)/accelIntervals.length : null;
+    appendEntry('info', 'accel', 'vibracion', {
+      rms: rms != null ? Math.round(rms*1000)/1000 : null,
+      n: n,
+      interval_ms: avgInt != null ? Math.round(avgInt*10)/10 : null,
+      gps_speed_mps: lastGpsSpeed != null ? Math.round(lastGpsSpeed*10)/10 : null,
+      gps_state: gpsState,
+      standby: accelInteracting(),
+      supported: accelSupported
+    });
+    accelSamples = []; accelIntervals = [];
+  }
+
+  function attachAccel(){
+    if(accelOn) return;
+    accelOn = true;
+    window.addEventListener('devicemotion', onDeviceMotion);
+    accelTimer = setInterval(emitAccelSample, ACCEL_EMIT_MS);
+    appendEntry('info', 'accel', 'inicio', { supported: true });
+  }
+
+  function startAccel(){
+    if(!accelSupported || accelOn) return;
+    // iOS exige permiso en gesto de usuario; en Android no hace falta. Best-effort.
+    try {
+      if(typeof DeviceMotionEvent.requestPermission === 'function'){
+        DeviceMotionEvent.requestPermission().then(function(st){
+          if(st === 'granted') attachAccel();
+          else appendEntry('warn', 'accel', 'permiso_denegado', {});
+        }).catch(function(){ /* sin gesto: se reintentará en el próximo arranque */ });
+      } else {
+        attachAccel();
+      }
+    } catch(e){ try { attachAccel(); } catch(e2){} }
+  }
+
+  function stopAccel(){
+    if(!accelOn) return;
+    accelOn = false;
+    window.removeEventListener('devicemotion', onDeviceMotion);
+    if(accelTimer){ clearInterval(accelTimer); accelTimer = null; }
+    emitAccelSample();   // volcar la última ventana
+  }
+
   // ---- Manejadores de fix/error GPS -------------------------------------------
   function onGpsFix(pos, mode, callLatencyMs){
     try {
@@ -322,6 +406,7 @@
       lastGpsTs     = now;
       lastGpsCoords = c;
       lastFixType   = fixType;
+      if(c && c.speed != null) lastGpsSpeed = c.speed;   // etiqueta de velocidad para el acelerómetro
 
       sessionStats.total_fixes++;
       if(fixType === 'gps')      sessionStats.gps_fixes++;
@@ -929,6 +1014,7 @@
               battery: getBattery()
             });
             startPulse();
+            startAccel();   // FASE 1: medir vibración junto a la velocidad GPS
 
             if(signalLostIv) clearInterval(signalLostIv);
             signalLostIv = setInterval(checkSignalLost, 5000);
@@ -950,6 +1036,7 @@
           } else if(last !== null){
             // --- TRACKING STOP ---
             stopPulse();
+            stopAccel();
             if(signalLostIv){ clearInterval(signalLostIv); signalLostIv = null; }
             if(provStaleIv) { clearInterval(provStaleIv);  provStaleIv  = null; }
 
