@@ -69,10 +69,14 @@ soporte sin tocar la pantalla, no lo detecta — por eso el móvil debe ir **fij
 ## 6. Fases
 
 **Fase 1 — MEDIR (se implementa ahora, sin cambiar el marcado).**
-Registrar en el log, cada ~20 s mientras hay seguimiento, una muestra agregada:
-`{ rms, n, interval_ms, gps_speed_mps, gps_state, standby }`. Con varios viajes
-(incluido el túnel de Chamartín) se ven los umbrales **reales** parado/movimiento
-y se fijan con números. **Cero riesgo** para el marcado actual.
+Registrar en el log una muestra agregada `{ rms, n, interval_ms, gps_speed_mps,
+gps_state, standby }`. **Cadencia adaptativa** para no inflar el log: el sensor se
+mide siempre (es barato), pero se REGISTRA **ligero con GPS (cada 60 s)** —datos de
+campo abierto redundantes— y **denso sin GPS (cada 15 s)**, que es el túnel donde el
+dato importa. El acelerómetro gasta poco frente al GPS/pantalla ya activos, así que
+el coste real es el tamaño de log, que esta cadencia mantiene bajo. Con varios viajes
+(incluido el túnel de Chamartín) se ven los umbrales **reales** parado/movimiento y
+se fijan con números. **Cero riesgo** para el marcado actual.
 
 **Fase 2 — CLASIFICAR.** Con los umbrales medidos, un clasificador parado/movimiento
 con ventana de confirmación (la literatura usa 8–22 s para "parado") e histéresis.
@@ -93,8 +97,8 @@ Categoría nueva `accel`:
 - `accel/inicio` `{ supported }` — al arrancar el seguimiento.
 - `accel/permiso_denegado` `{}` — solo iOS, si se deniega.
 - `accel/vibracion` `{ rms, n, interval_ms, gps_speed_mps, gps_state, standby, supported }`
-  cada ~20 s. `rms` = vibración (RMS de |a|−media); `standby=true` si la ventana se
-  cerró tocando la pantalla (muestra a descartar en el análisis).
+  cada 60 s con GPS / 15 s sin GPS. `rms` = vibración (RMS de |a|−media);
+  `standby=true` si la ventana se cerró tocando la pantalla (muestra a descartar).
 
 ## 8. Límites honestos (resumen)
 

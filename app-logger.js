@@ -292,7 +292,11 @@
   // Objetivo: registrar el RMS de vibración junto a la velocidad GPS para calibrar
   // con datos reales el umbral parado/movimiento usable en túnel (sin GPS). NO
   // cambia el marcado. Ver PLAN-ACELEROMETRO.md.
-  var ACCEL_EMIT_MS           = 20000;  // muestra agregada cada 20 s
+  // Cadencia adaptativa: el acelerómetro se mide siempre (es barato), pero se
+  // REGISTRA poco en campo abierto (con GPS, datos redundantes) y denso solo sin
+  // GPS (túnel), que es donde el dato importa. Mantiene el log pequeño.
+  var ACCEL_EMIT_OPEN_MS      = 60000;  // con GPS: muestra ligera cada 60 s
+  var ACCEL_EMIT_LOSS_MS      = 15000;  // sin GPS (túnel): denso cada 15 s
   var ACCEL_TOUCH_COOLDOWN_MS = 4000;   // tras tocar la pantalla, standby N s (anti-ruido)
   var accelSupported = (typeof window.DeviceMotionEvent !== 'undefined');
   var accelOn        = false;
@@ -340,11 +344,21 @@
     accelSamples = []; accelIntervals = [];
   }
 
+  // Denso cuando no hay GPS satelital (túnel), ligero con GPS.
+  function accelInterval(){
+    return (gpsState==='lost'||gpsState==='seeking'||gpsState==='stopped_watch'||gpsState==='pre_window')
+      ? ACCEL_EMIT_LOSS_MS : ACCEL_EMIT_OPEN_MS;
+  }
+  function accelLoop(){
+    emitAccelSample();
+    if(accelOn) accelTimer = setTimeout(accelLoop, accelInterval());
+  }
+
   function attachAccel(){
     if(accelOn) return;
     accelOn = true;
     window.addEventListener('devicemotion', onDeviceMotion);
-    accelTimer = setInterval(emitAccelSample, ACCEL_EMIT_MS);
+    accelTimer = setTimeout(accelLoop, accelInterval());
     appendEntry('info', 'accel', 'inicio', { supported: true });
   }
 
@@ -367,7 +381,7 @@
     if(!accelOn) return;
     accelOn = false;
     window.removeEventListener('devicemotion', onDeviceMotion);
-    if(accelTimer){ clearInterval(accelTimer); accelTimer = null; }
+    if(accelTimer){ clearTimeout(accelTimer); accelTimer = null; }
     emitAccelSample();   // volcar la última ventana
   }
 

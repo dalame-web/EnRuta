@@ -315,6 +315,7 @@ body{background:var(--bg);color:var(--fg);font-family:'Poppins',sans-serif;font-
         <div id="stations-section"></div>
         <div id="signal-lost-section"></div>
         <div id="accuracy-chart"></div>
+        <div id="accel-chart"></div>
         <div id="gps-internal-section"></div>
         <div id="user-actions-section"></div>
         <div id="alerts-section"></div>
@@ -608,6 +609,7 @@ function analyzeLog(entries){
   );
   const signalLosts      = by('gps','signal_lost');
   const signalRecovereds = by('gps','signal_recovered');
+  const accelSamples     = by('accel','vibracion');
 
   const lostPairs = signalLosts.map(lost=>{
     const lTs = new Date(lost.ts).getTime();
@@ -676,6 +678,7 @@ function analyzeLog(entries){
     trackingStart, trackingStop, sessionSummary:effSummary, trackingRoute, ttff,
     stateChanges, marks, pulses, lectures, gpsErrors, zombieCalls,
     gpsInternal, lifecycle, userActions, alerts, lostPairs,
+    accelSamples,
     startTs, stopTs
   };
 }
@@ -700,6 +703,7 @@ function showLog(d){
   renderStationsSection(d);
   renderSignalLostSection(d);
   renderAccuracyChart(d);
+  renderAccelChart(d);
   renderGpsInternalSection(d);
   renderUserActionsSection(d);
   renderAlertsSection(d);
@@ -1069,6 +1073,84 @@ function renderAccuracyChart(d){
   </svg>`;
 
   el.innerHTML=`<div class="section-title">Precisión GPS a lo largo del servicio</div>${svg}`;
+}
+
+/* ============================================================
+   7b. ACELERÓMETRO — vibración vs velocidad (calibración túnel)
+   ============================================================ */
+function median(arr){
+  if(!arr.length) return null;
+  const s=arr.slice().sort((a,b)=>a-b), m=Math.floor(s.length/2);
+  return s.length%2?s[m]:(s[m-1]+s[m])/2;
+}
+function renderAccelChart(d){
+  const el=document.getElementById('accel-chart');
+  const S=(d.accelSamples||[]).filter(e=>{
+    const t=new Date(e.ts).getTime();
+    return d.startTs&&d.stopTs&&t>=d.startTs&&t<=d.stopTs&&e.data;
+  }).sort((a,b)=>new Date(a.ts)-new Date(b.ts));
+  if(!S.length){ el.innerHTML=''; return; }
+
+  const W=860,H=270,PL=50,PR=50,PT=20,PB=42,cW=W-PL-PR,cH=H-PT-PB,total=d.stopTs-d.startTs;
+  let maxRms=0.5, maxSpd=1;
+  S.forEach(e=>{ if(e.data.rms!=null) maxRms=Math.max(maxRms,e.data.rms);
+                 if(e.data.gps_speed_mps!=null) maxSpd=Math.max(maxSpd,e.data.gps_speed_mps); });
+  maxRms*=1.15; maxSpd=Math.max(maxSpd*1.1, 10);
+  const xOf=ts=>PL+((new Date(ts).getTime()-d.startTs)/total)*cW;
+  const yRms=v=>PT+cH-(Math.min(v,maxRms)/maxRms)*cH;
+  const ySpd=v=>PT+cH-(Math.min(v,maxSpd)/maxSpd)*cH;
+
+  // Zonas de pérdida de señal (túnel candidato): donde más importa el acelerómetro.
+  const zones=d.lostPairs.map(({lost,recovered})=>{
+    const x1=xOf(lost.ts),x2=recovered?xOf(recovered.ts):PL+cW;
+    return `<rect x="${x1.toFixed(1)}" y="${PT}" width="${Math.max(1,(x2-x1)).toFixed(1)}" height="${cH}" fill="#f85149" opacity="0.12"/>`;
+  }).join('');
+
+  // Línea de velocidad GPS (eje derecho, azul discontinuo).
+  const spdPts=S.filter(e=>e.data.gps_speed_mps!=null).map(e=>`${xOf(e.ts).toFixed(1)},${ySpd(e.data.gps_speed_mps).toFixed(1)}`);
+  const spdLine=spdPts.length>=2?`<polyline points="${spdPts.join(' ')}" fill="none" stroke="#58a6ff" stroke-width="1.5" stroke-dasharray="5,3" opacity="0.8"/>`:'';
+
+  // Línea de RMS (eje izquierdo, verde) — solo muestras no-standby.
+  const rmsPts=S.filter(e=>e.data.rms!=null&&!e.data.standby).map(e=>`${xOf(e.ts).toFixed(1)},${yRms(e.data.rms).toFixed(1)}`);
+  const rmsLine=rmsPts.length>=2?`<polyline points="${rmsPts.join(' ')}" fill="none" stroke="#3fb950" stroke-width="1.8" opacity="0.9"/>`:'';
+  const rmsDots=S.filter(e=>e.data.rms!=null).map(e=>{
+    const col=e.data.standby?'#6e7681':'#3fb950';
+    return `<circle cx="${xOf(e.ts).toFixed(1)}" cy="${yRms(e.data.rms).toFixed(1)}" r="3" fill="${col}" opacity="${e.data.standby?0.5:0.85}"/>`;
+  }).join('');
+
+  // Calibración: RMS típico parado (GPS, vel<0.5) vs en marcha (GPS, vel>5), no-standby.
+  const stoppedR=S.filter(e=>e.data.gps_state==='gps'&&!e.data.standby&&e.data.rms!=null&&e.data.gps_speed_mps!=null&&e.data.gps_speed_mps<0.5).map(e=>e.data.rms);
+  const movingR =S.filter(e=>e.data.gps_state==='gps'&&!e.data.standby&&e.data.rms!=null&&e.data.gps_speed_mps!=null&&e.data.gps_speed_mps>5).map(e=>e.data.rms);
+  const medStop=median(stoppedR), medMove=median(movingR);
+  const thr=(medStop!=null&&medMove!=null)?(medStop+medMove)/2:null;
+  const thrLine=thr!=null?`<line x1="${PL}" x2="${PL+cW}" y1="${yRms(thr).toFixed(1)}" y2="${yRms(thr).toFixed(1)}" stroke="#e3b341" stroke-dasharray="6,3" opacity="0.7"/>
+    <text x="${PL+4}" y="${yRms(thr)-4}" fill="#e3b341" font-size="10">umbral sugerido ${thr.toFixed(3)}</text>`:'';
+
+  // Ejes
+  const yTicks=[0,maxRms/2,maxRms].map(v=>`<text x="${PL-7}" y="${yRms(v)+4}" text-anchor="end" fill="#3fb950" font-size="10">${v.toFixed(2)}</text>`).join('');
+  const yTicksR=[0,maxSpd/2,maxSpd].map(v=>`<text x="${PL+cW+7}" y="${ySpd(v)+4}" text-anchor="start" fill="#58a6ff" font-size="10">${Math.round(v*3.6)}</text>`).join('');
+  const xAxis=[0,1,2,3,4].map(i=>{
+    const t=new Date(d.startTs+total*i/4).toISOString(), x=(PL+cW*i/4).toFixed(1);
+    return `<line x1="${x}" x2="${x}" y1="${PT+cH}" y2="${PT+cH+4}" stroke="#6e7681"/><text x="${x}" y="${PT+cH+14}" text-anchor="middle" fill="#6e7681" font-size="9">${fmtTs(t)}</text>`;
+  }).join('');
+
+  const stat=`parado≈${medStop!=null?medStop.toFixed(3):'—'} · marcha≈${medMove!=null?medMove.toFixed(3):'—'}${thr!=null?' · umbral '+thr.toFixed(3):''} (m/s²)`;
+  const svg=`<svg viewBox="0 0 ${W} ${H}" xmlns="http://www.w3.org/2000/svg" style="width:100%;border-radius:8px;background:#161b22">
+    <rect x="${PL}" y="${PT}" width="${cW}" height="${cH}" fill="#0d1117" rx="2"/>
+    ${zones}${thrLine}${spdLine}${rmsLine}${rmsDots}
+    <line x1="${PL}" x2="${PL}" y1="${PT}" y2="${PT+cH}" stroke="#30363d"/>
+    <line x1="${PL+cW}" x2="${PL+cW}" y1="${PT}" y2="${PT+cH}" stroke="#30363d"/>
+    <line x1="${PL}" x2="${PL+cW}" y1="${PT+cH}" y2="${PT+cH}" stroke="#30363d"/>
+    ${yTicks}${yTicksR}${xAxis}
+    <text x="${12}" y="${PT+cH/2}" text-anchor="middle" fill="#3fb950" font-size="10" transform="rotate(-90,12,${PT+cH/2})">Vibración RMS (m/s²)</text>
+    <text x="${W-12}" y="${PT+cH/2}" text-anchor="middle" fill="#58a6ff" font-size="10" transform="rotate(90,${W-12},${PT+cH/2})">Velocidad GPS (km/h)</text>
+    <circle cx="${W-250}" cy="${PT+10}" r="4" fill="#3fb950"/><text x="${W-243}" y="${PT+14}" fill="#9ba3ad" font-size="10">RMS vibración</text>
+    <circle cx="${W-150}" cy="${PT+10}" r="4" fill="#6e7681"/><text x="${W-143}" y="${PT+14}" fill="#9ba3ad" font-size="10">standby (táctil)</text>
+    <line x1="${W-55}" x2="${W-40}" y1="${PT+10}" y2="${PT+10}" stroke="#58a6ff" stroke-dasharray="4,2"/><text x="${W-37}" y="${PT+14}" fill="#9ba3ad" font-size="10">vel</text>
+  </svg>`;
+
+  el.innerHTML=`<div class="section-title">Acelerómetro — vibración vs velocidad (${S.length} muestras) · ${stat}</div>
+    <div style="font-size:11px;color:var(--fg-dim);margin:-4px 0 8px">Zonas rojas = sin GPS (túnel candidato). Si en esas zonas el RMS se mantiene alto → el tren se movía; si cae al nivel "parado" → estaba detenido.</div>${svg}`;
 }
 
 /* ============================================================
