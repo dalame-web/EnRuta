@@ -139,15 +139,17 @@ sostenido <3 km/h. Riesgo bajo.
 anticipar el retraso (ver §5: no es viable ni necesario). Hoy `ltvWait` actúa solo por
 distancia.
 
-**e) BUG — "Retraso creciendo: +X min" sale también yendo con ADELANTO.**
-`gps-tracking.js:1225` (y el equivalente del checkpoint, `:847`) escriben el texto
+**e) BUG ARREGLADO — "Retraso creciendo: +X min" salía también yendo con ADELANTO.**
+`gps-tracking.js:1225` (y el del checkpoint, `:847`) escribían el texto
 `"Retraso creciendo: +"` de forma **fija**, y `fmtDur` (`:231`) hace `Math.abs(min)`, que
 **elimina el signo**. El disparo (`:1211`, `nowMNow > effNow + 0.5`) salta cuando el tren
-pierde tiempo respecto a su **propio ritmo**, aunque el delta total (`prov`) siga siendo
-**negativo (adelanto)**. Resultado real: yendo 3 min adelantado y perdiendo 1 min, muestra
-*"Retraso creciendo: +2 min"* cuando en realidad **sigues 2 min adelantado**.
-**Dirección de arreglo (pendiente):** el texto y el signo deben depender del signo de
-`prov` (>0 → retraso `+`; <0 → adelanto `−`), no ir fijos. Aplica a `:1225` y `:847`.
+pierde tiempo respecto a su **propio ritmo**, aunque el delta total siga siendo
+**negativo (adelanto)**. Síntoma: yendo 3 min adelantado y perdiendo 1 min, mostraba
+*"Retraso creciendo: +2 min"* cuando en realidad seguías 2 min adelantado.
+**Arreglo aplicado:** nuevo helper `desfaseFrase(min)` (`gps-tracking.js:~234`) que elige
+palabra y signo según el desfase real (`+` retraso / `−` adelanto / "En hora"). El poll
+(`:1225`) usa `prov`; el checkpoint (`:847`) usa el desfase TOTAL `provDelay` (no el ritmo
+local). La clase del status pasa a `'ok'` cuando es adelanto (antes siempre `'warn'`).
 
 ---
 
@@ -174,7 +176,7 @@ El **único hueco real y grave** es el **(a)**: PARADO no puede observarse en t�
 solo GPS — lo que el acelerómetro resuelve. La **estimación de retraso por DHLTV** (§5)
 es deseable pero **compleja**: depende de ETCS/LZB, balizas y dinámica del tren; no se
 puede hacer fiable solo con los PK del PDF. El resto son decisiones defendibles, no
-errores —salvo el BUG §6e (mensaje "Retraso creciendo" con adelanto), pendiente de arreglo.
+errores. El BUG §6e (mensaje "Retraso creciendo" con adelanto) queda **arreglado**.
 
 ---
 
@@ -189,4 +191,8 @@ anota aquí, para que quede todo registrado.
   necesaria** (el GPS ya mide el retraso real de forma observacional).
 - **2026-06-27** — Hallazgo **§6e**: el mensaje *"Retraso creciendo: +X"* aparece también
   yendo con adelanto. Causa: `fmtDur` con `Math.abs` + texto/signo fijos en
-  `gps-tracking.js:1225` y `:847`. **Pendiente de arreglo en código.**
+  `gps-tracking.js:1225` y `:847`.
+- **2026-06-27** — **§6e ARREGLADO** en código: nuevo helper `desfaseFrase(min)` en
+  `gps-tracking.js` que pone palabra y signo según el desfase real; usado en el poll
+  (`prov`) y en el checkpoint (`provDelay`). Status pasa a `'ok'` con adelanto.
+  Versión studio-v23→v24, iryostudio-v8→v9, cache SW v28→v29.

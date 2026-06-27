@@ -230,6 +230,16 @@
   function fmtHM(min){ min = ((Math.round(min) % 1440) + 1440) % 1440; return pad(min/60) + ':' + pad(min%60); }
   function fmtDur(min){ return Math.floor(Math.abs(min)) + ' min'; }
 
+  // Frase de desfase con signo correcto (BUG §6e, AUDITORIA-LTV-PARADO.md): antes el
+  // texto "Retraso creciendo: +" iba FIJO y, yendo con adelanto (min<0), mostraba un
+  // retraso falso. Ahora la palabra y el signo dependen del signo del desfase real.
+  function desfaseFrase(min){
+    var v = Math.floor(Math.abs(min));
+    if(min >=  0.5) return 'Retraso creciendo: +' + v + ' min';
+    if(min <= -0.5) return 'Adelanto: −' + v + ' min';
+    return 'En hora';
+  }
+
   function stName(idx){
     var m = API.getMarch();
     if(!m || !m.s[idx]) return '?';
@@ -844,7 +854,9 @@
       } else if(advance < -0.5){
         logEvent('checkpoint', stName(idx) + ' — retraso detectado +' + Math.round(-advance) +
                  ' min (ETA ' + fmtHM(eff - advance) + ') · prov=' + Math.round(provDelay) + ' min');
-        setStatus('Retraso creciendo: +' + Math.round(-advance) + ' min hacia ' + stName(idx), 'warn');
+        // El texto al maquinista refleja el desfase TOTAL (provDelay), no el ritmo
+        // local del checkpoint: si sigue adelantado, no decir "retraso". (BUG §6e)
+        setStatus(desfaseFrase(provDelay) + ' hacia ' + stName(idx), provDelay >= 0.5 ? 'warn' : 'ok');
       } else {
         logEvent('checkpoint', stName(idx) + ' — en hora (ETA ~' + fmtHM(eff - Math.max(advance, -99)) + '); ventana normal');
       }
@@ -1221,8 +1233,8 @@
             estimateMark(gpsNextIdx);
           } else {
             API.setProvisionalDelay(prov);
-            logEvent('retraso', '+' + Math.round(prov) + ' min provisional hacia ' + name, 'retraso' + Math.round(prov));
-            setStatus('Retraso creciendo: +' + fmtDur(prov) + ' · sin pasar aún ' + name, 'warn');
+            logEvent('retraso', (prov >= 0 ? '+' : '') + Math.round(prov) + ' min provisional hacia ' + name, 'retraso' + Math.round(prov));
+            setStatus(desfaseFrase(prov) + ' · sin pasar aún ' + name, prov >= 0.5 ? 'warn' : 'ok');
           }
         } else {
           // GPS-003 RC3: mantener lock en hora — currentDelta() en vez de null
