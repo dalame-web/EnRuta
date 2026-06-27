@@ -21,7 +21,7 @@
 <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/microsoft-signalr/8.0.7/signalr.min.js"></script>
-<meta name="ebula-version" content="studio-v24">
+<meta name="ebula-version" content="studio-v25">
 <script>if(typeof pdfjsLib!=='undefined'){pdfjsLib.GlobalWorkerOptions.workerSrc='https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js';}</script>
 <style>
   :root{
@@ -214,6 +214,12 @@
   button.gps-btn.tracking:hover{background:var(--bad);color:#fff}
   button.gps-btn.armed{background:rgba(63,185,80,.22);animation:gpsPulse 1.6s infinite}
   @keyframes gpsPulse{0%,100%{opacity:1}50%{opacity:.5}}
+  /* Reset punteo y "detener localización" (GPS activo) legibles en modo claro: el
+     fondo #3a1d1d fijo se veía oscuro sobre blanco. */
+  body.light button.bad,
+  body.light button.gps-btn.tracking{background:#fdecec;border-color:#c0392b;color:#b02a1a}
+  body.light button.bad:hover,
+  body.light button.gps-btn.tracking:hover{background:#c0392b;color:#fff;border-color:#c0392b}
   .info-row{display:flex;gap:14px;align-items:center;flex-wrap:wrap;
     padding:4px 0;font-size:13px}
   .badge{background:var(--panel-2);border:1px solid var(--border);
@@ -249,6 +255,10 @@
   /* Dependencia / Teórica / Com — mismo tamaño que Km */
   td.name{font-size:15px;font-weight:600}
   td.time{font-size:15px;font-weight:600}
+  /* Paradas: llegada (arriba, tenue) y salida (abajo, destacada) apiladas. */
+  td.time .t-arr{display:block;font-size:11px;font-weight:500;color:var(--fg-dim);line-height:1.15}
+  td.time .t-dep{display:block;font-weight:700;line-height:1.15}
+  body.light td.time .t-arr{color:#5a6068}
   td.com{font-size:15px;font-weight:600}
   td.vmax,td.vmax.merged,tr.cdi-row td.vmax,tr.now td.vmax,td.vmax.merged.now-merged{text-align:right;color:#a0d2ff!important;padding-right:8px;font-weight:700;font-size:16px}
   /* VMáx con highlight gris (cuadro sombreado en el PDF original) */
@@ -4444,8 +4454,20 @@ window.addEventListener('unload', ebulaClearAllData);
         : (hasName
             ? `<td class="actual" data-idx="${idx}"><button class="punch-btn">marcar</button></td>`
             : `<td class="actual" data-idx="${idx}" data-no-mark="1"></td>`);
-      // Teórica: si es BCE/CDI/ZN, dejar vacía
-      const timeCell = isMarker ? '' : (s.h || '');
+      // Teórica: BCE/CDI/ZN vacía. En paradas intermedias mostramos LLEGADA
+      // (= salida − duración de parada c+tc) y SALIDA; en pasos/origen/destino,
+      // solo la hora. s.h es la hora de SALIDA (dato del dueño 27-06).
+      let timeCell = '';
+      if(!isMarker && s.h){
+        const dwell = (parseInt(s.c,10)||0) + (parseInt(s.tc,10)||0);
+        if(dwell > 0 && s.tm != null && idx > 0 && idx < lastIdx){
+          const arrMin = (((s.tm - dwell) % 1440) + 1440) % 1440;
+          const arr = pad(Math.floor(arrMin/60)) + ':' + pad(arrMin%60);
+          timeCell = '<span class="t-arr">'+arr+'</span><span class="t-dep">'+s.h+'</span>';
+        } else {
+          timeCell = s.h;
+        }
+      }
       // Celda Dependencia: contenido distinto si es ZN
       let depContent;
       if(isZn){
@@ -4730,10 +4752,14 @@ window.addEventListener('unload', ebulaClearAllData);
       const tr = document.querySelector('#rows tr[data-idx="'+activeIdx+'"]');
       if(tr){
         const main = $('schedule-pane');
-        const trRect = tr.getBoundingClientRect();
-        const mainRect = main.getBoundingClientRect();
-        if(trRect.top < mainRect.top+80 || trRect.bottom > mainRect.bottom-40){
-          try{ tr.scrollIntoView({block:'center', behavior:'smooth'}); }catch(e){}
+        // Fila activa fija a ~28% desde arriba: se mantiene arriba pero deja ver
+        // algunas filas por encima. Se recalcula cada actualización para que no se
+        // descuelgue. Umbral de 24 px para evitar micro-scrolls en cada tick.
+        const target = main.scrollTop + tr.getBoundingClientRect().top
+                       - main.getBoundingClientRect().top - main.clientHeight * 0.28;
+        if(Math.abs(target - main.scrollTop) > 24){
+          try{ main.scrollTo({top: target, behavior:'smooth'}); }
+          catch(e){ main.scrollTop = target; }
         }
       }
     }
@@ -6205,7 +6231,7 @@ renderLTVList();
 (function showSwVersion(){
   const el = document.getElementById('sw-version'); if(!el) return;
   const ORIGINAL_VER = 'ebula-v82';
-  const STUDIO_VER   = 'iryostudio-v11';
+  const STUDIO_VER   = 'iryostudio-v12';
   const LOC_VER      = 'loc.-V25';
   el.textContent = ORIGINAL_VER + ' | ' + STUDIO_VER + ' | ' + LOC_VER;
 })();

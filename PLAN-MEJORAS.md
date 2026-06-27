@@ -30,7 +30,8 @@ if(activeIdx>=0 && !window._suppressAutoScroll){
 fila a una fracción fija desde arriba (≈25-30 %): `main.scrollTop = tr.offsetTop −
 main.clientHeight * 0.28`. Reajustar en cada `updatePosition` solo si se desvía de esa
 posición objetivo (umbral, para no marear). Mantener `_suppressAutoScroll` (gracia de 3 s
-tras scroll manual del usuario). **Pendiente.**
+tras scroll manual del usuario). **HECHO** (`index.html` + `horario.html`): fila fijada a
+~28 % desde arriba, recalculada cada tick, umbral 24 px; se ven filas por encima.
 
 ---
 
@@ -47,8 +48,9 @@ tras scroll manual del usuario). **Pendiente.**
 body.light button.bad,
 body.light button.gps-btn.tracking{ background:#fdecec; border-color:#d11; color:#b00; }
 ```
-(rosa claro + texto/borde rojo, legible sobre blanco). Verificar tonos con el resto del
-tema claro. **Pendiente.**
+(rosa claro + texto/borde rojo, legible sobre blanco). **HECHO** (`index.html` +
+`horario.html`): override `body.light` para `button.bad` y `button.gps-btn.tracking`
+(fondo `#fdecec`, texto `#b02a1a`, borde `#c0392b`; hover invertido).
 
 ---
 
@@ -86,10 +88,20 @@ Esto **solo lo sabe el maquinista** (depende de cómo viene la marcha). No se in
 **Dato adicional:** el panel **ADIF** sí trae `arrival_time` y `departure_time` por
 estación (`index.html:1944`), pero es otra fuente (tiempo real ADIF), no la marcha.
 
-**Propuesta (una vez aclarado `h`):** en paradas comerciales, mostrar **llegada** y
-**salida** (derivando la que falte con `c`/`tc`), y permitir/mostrar marca real y
-retraso/adelanto contra **ambas**. Cambia el render del libro y la lógica de marcado.
-**Pendiente + requiere aclaración.**
+**Aclarado por el dueño (27-06):** `s.h` es la hora de **SALIDA**. La **llegada** =
+`s.h − (c + tc)` (duración total de parada). Ej.: salida 20:50, comercial 2 min →
+llegada 20:48.
+
+**HECHO** (`index.html` + `horario.html`, libro `#rows`): en paradas intermedias
+(`idx>0 && idx<lastIdx`, con `dwell>0`), la celda Teórica muestra **llegada** (arriba,
+tenue) y **salida** (abajo, destacada) apiladas, calculando la llegada con `s.tm − dwell`.
+Pasos/origen/destino siguen mostrando una sola hora.
+
+> Nota: el retraso/adelanto se calcula hoy contra la salida (delta general). Marcar el
+> retraso contra la LLEGADA por separado queda como afinado posterior si el dueño lo pide.
+> **Trabajo paralelo (otra sesión):** el commit `a8d10f5` añadió "H. Llegada" en
+> `registro.js` (módulo de **registro de viajes RV**, vista distinta del libro). No
+> duplica este cambio.
 
 ---
 
@@ -109,21 +121,28 @@ identificable**, tanto si el horario avanza por **GPS** como **normal (por hora)
   (`index.html:4432`).
 - **Posición:** `activeIdx` (estación actual, por hora; `:4644-4654`) afinada por GPS.
 
+**Decisiones del dueño (27-06):**
+- **A — Anticipación: avisar 6 km ANTES** del PK de la zona neutra o de la LTV.
+- **B — Sonido obligatorio** (aviso acústico para que el maquinista se dé cuenta).
+
 **Retos / lo que hay que resolver (sin inventar):**
-1. **Anticipación.** El aviso debe salir **antes** de llegar (el dueño ya señaló que se
-   reduce velocidad ANTES de la baliza). Hay que decidir el margen: por estaciones, por
-   tiempo, o por km estimado. Para km exacto haría falta estimar el **km actual** del tren
-   (interpolar entre estaciones por `k`, o sacar km de la proyección GPS) — hoy NO existe
-   ese "km actual" como tal.
-2. **Sonido.** Hoy **no hay audio** en la app. Habría que añadir Web Audio API (un tono
-   suave por oscilador, o un archivo corto). **Caveat real:** los navegadores **bloquean
-   el audio** hasta un gesto del usuario; el AudioContext se "desbloquea" al pulsar
-   "Iniciar seguimiento" o el propio botón BSL. Sin ese gesto, el sonido no sonará.
+1. **Anticipación 6 km → hace falta el "km actual" del tren.** Hoy NO existe como tal.
+   Para comparar "faltan 6 km al PK de la ZN/LTV" hay que estimar el km del tren:
+   interpolando entre la estación anterior y la siguiente por sus `k` (proporción de
+   tiempo/posición), o proyectando la posición GPS sobre la ruta y midiendo el km. Es el
+   punto técnico principal a resolver.
+2. **Sonido — aclaración de "lo bloquea":** no es que no se pueda; es que **los
+   navegadores no dejan sonar audio "porque sí"** (política anti-autoplay): el sonido solo
+   suena si antes hubo un **gesto del usuario** (un toque/clic) que "active" el audio. Se
+   resuelve fácil: al pulsar **Iniciar seguimiento** o el botón **BSL**, se inicializa el
+   `AudioContext`; a partir de ahí los avisos suenan solos. Tono suave por Web Audio
+   (oscilador) o archivo corto. Hoy la app **no tiene nada de audio**, se añade de cero.
 3. **Modo GPS y normal.** La detección debe funcionar con seguimiento GPS y por hora.
 4. **No duplicar avisos.** Avisar una vez por ZN/LTV (como el `shownCodigos` de las LTV).
 
-**Estado:** investigado, viable con los datos actuales; el punto fino es la anticipación
-(km actual) y desbloquear el audio. **Pendiente de diseño detallado e implementación.**
+**Estado:** investigado, viable. Puntos finos: estimar el **km actual** (para los 6 km) y
+**desbloquear el audio** con un gesto. **Pendiente de implementación** (para la siguiente
+tanda, tras el cambio de nombre a "EnRuta").
 
 ---
 
@@ -131,3 +150,8 @@ identificable**, tanto si el horario avanza por **GPS** como **normal (por hora)
 
 - **2026-06-27** — Investigación inicial de las 4 mejoras + función BSL (este documento).
   Nada implementado aún. Punto 4 bloqueado a aclarar qué es `s.h` (llegada/salida/paso).
+- **2026-06-27** — Implementados **§1 (scroll arriba fijo)**, **§2 (botones modo claro)** y
+  **§4 (llegada/salida en paradas)** en `index.html` + `horario.html`. `s.h` aclarado =
+  salida; llegada = `s.h − (c+tc)`. §3 (nombre "EnRuta") y §5 (BSL) quedan pendientes.
+  Versiones: studio-v24→v25, iryostudio-v11→v12, cache SW v31→v32. Detectado trabajo
+  paralelo en `registro.js` (commits `87c1a6f`, `a8d10f5`) que no entra en conflicto.
