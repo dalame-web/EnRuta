@@ -268,10 +268,9 @@
   /* Dependencia / Teórica / Com — mismo tamaño que Km */
   td.name{font-size:15px;font-weight:600}
   td.time{font-size:15px;font-weight:600}
-  /* Paradas: llegada (arriba, tenue) y salida (abajo, destacada) apiladas. */
-  td.time .t-arr{display:block;font-size:11px;font-weight:500;color:var(--fg-dim);line-height:1.15}
+  /* Paradas: llegada y salida apiladas, mismo peso. */
+  td.time .t-arr{display:block;font-weight:700;line-height:1.15}
   td.time .t-dep{display:block;font-weight:700;line-height:1.15}
-  body.light td.time .t-arr{color:#5a6068}
   td.com{font-size:15px;font-weight:600}
   td.vmax,td.vmax.merged,tr.cdi-row td.vmax,tr.now td.vmax,td.vmax.merged.now-merged{text-align:right;color:#a0d2ff!important;padding-right:8px;font-weight:700;font-size:16px}
   /* VMáx con highlight gris (cuadro sombreado en el PDF original) */
@@ -407,6 +406,15 @@
   td.actual.mark-est{color:var(--warn)}
   td.actual.mark-est span:first-child{font-style:italic;opacity:.85}
   td.actual .clear-x{cursor:pointer;color:var(--bad);margin-left:4px;font-weight:bold}
+  td.actual.stop-cell{padding:1px 2px;white-space:normal;text-align:center;align-items:center}
+  td.actual .mk-slot{display:flex;align-items:center;gap:3px;line-height:1.25;white-space:nowrap}
+  td.actual .mk-slot + .mk-slot{margin-top:6px}
+  td.actual .mk-lbl{font-size:9px;font-weight:700;color:var(--fg-dim);text-align:center}
+  td.actual .mk-slot.mark-gps{color:var(--ok)}
+  td.actual .mk-slot.mark-est{color:var(--warn)}
+  td.actual .mk-slot.mark-est span{font-style:italic;opacity:.85}
+  td.actual .mk-slot.mark-manual{color:var(--accent)}
+  td.actual .mk-slot .punch-btn{padding:1px 5px}
   .stop-marker{display:inline-block;width:8px;height:8px;border-radius:50%;background:#fff;margin-right:6px;vertical-align:middle}
   .progress-track{height:6px;background:var(--panel-2);border-radius:3px;overflow:hidden;margin:4px 0;position:relative}
   .progress-fill{height:100%;background:linear-gradient(90deg,var(--accent),var(--ok));border-radius:3px;transition:width .5s ease}
@@ -3463,29 +3471,42 @@
     }
     return occ ? base + '|' + occ : base;
   }
-  function getMarkAt(idx){
-    const nk = rowMarkKey(idx);
-    return nk != null ? (punches[tickKey()]||{})[nk] : undefined;
+  // Fase 1 doble marca: parada intermedia con tiempo de estacionamiento.
+  function isStopRow(idx){
+    const s = march && march.s ? march.s[idx] : null;
+    if(!s) return false;
+    const dwell = (parseInt(s.c,10)||0) + (parseInt(s.tc,10)||0);
+    return dwell > 0 && idx > 0 && idx < (march.s.length - 1);
   }
-  function getMarkSrcAt(idx){
+  // kind 'a' = LLEGADA → sufijo '|a'. Sin kind o kind 'd' = SALIDA (clave base, compat GPS).
+  function markKeyK(idx, kind){
     const nk = rowMarkKey(idx);
-    return nk != null ? (markSource[tickKey()]||{})[nk] : undefined;
+    if(nk == null) return null;
+    return (kind === 'a' && isStopRow(idx)) ? nk + '|a' : nk;
   }
-  function setMarkAt(idx, hhmm, src){
-    const nk = rowMarkKey(idx);
-    if(nk == null) return;
+  function getMarkAt(idx, kind){
+    const k = markKeyK(idx, kind);
+    return k != null ? (punches[tickKey()]||{})[k] : undefined;
+  }
+  function getMarkSrcAt(idx, kind){
+    const k = markKeyK(idx, kind);
+    return k != null ? (markSource[tickKey()]||{})[k] : undefined;
+  }
+  function setMarkAt(idx, hhmm, src, kind){
+    const k = markKeyK(idx, kind);
+    if(k == null) return;
     const key = tickKey();
     if(!punches[key]) punches[key]={};
     if(!markSource[key]) markSource[key]={};
-    punches[key][nk] = hhmm;
-    markSource[key][nk] = src;
+    punches[key][k] = hhmm;
+    markSource[key][k] = src;
   }
-  function clearMarkAt(idx){
-    const nk = rowMarkKey(idx);
+  function clearMarkAt(idx, kind){
+    const k = markKeyK(idx, kind);
     const key = tickKey();
-    if(nk != null && punches[key] && punches[key][nk] != null){
-      delete punches[key][nk];
-      if(markSource[key]) delete markSource[key][nk];
+    if(k != null && punches[key] && punches[key][k] != null){
+      delete punches[key][k];
+      if(markSource[key]) delete markSource[key][k];
       return true;
     }
     return false;
@@ -3524,6 +3545,18 @@
     if(changed){ savePunches(); saveMarkSource(); }
   }
 
+  function punchSlotHtml(idx, kind, trPunches, trSrc, label){
+    const k = markKeyK(idx, kind);
+    const p = k != null ? trPunches[k] : undefined;
+    const lbl = label ? `<span class="mk-lbl">${label}</span>` : '';
+    if(p){
+      const src = k != null ? trSrc[k] : undefined;
+      const cls = src === 'est' ? 'mark-est' : (src === 'gps' ? 'mark-gps' : 'mark-manual');
+      const prefix = src === 'est' ? '~ ' : (src === 'gps' ? '📡 ' : '✋ ');
+      return `<span class="mk-slot punched ${cls}" data-kind="${kind||''}">${lbl}<span>${prefix}${p}</span><span class="clear-x" data-kind="${kind||''}" title="Borrar">×</span></span>`;
+    }
+    return `<span class="mk-slot" data-kind="${kind||''}">${lbl}<button class="punch-btn" data-kind="${kind||''}">marcar</button></span>`;
+  }
   function applyPunches(){
     const key = tickKey();
     const trPunches = punches[key]||{};
@@ -3532,7 +3565,15 @@
       if(!td.dataset.idx) return;
       if(td.dataset.noMark) return;
       const idx = +td.dataset.idx;
-      const nk = rowMarkKey(idx);          // HOR-001: clave estable, no índice
+      if(isStopRow(idx)){
+        td.classList.add('stop-cell');
+        td.classList.remove('punched','mark-est','mark-gps','mark-manual');
+        td.innerHTML = punchSlotHtml(idx,'a',trPunches,trSrc,'Llegada')
+                     + punchSlotHtml(idx,'d',trPunches,trSrc,'Salida');
+        return;
+      }
+      td.classList.remove('stop-cell');
+      const nk = rowMarkKey(idx);
       const p = nk != null ? trPunches[nk] : undefined;
       if(p){
         td.classList.add('punched');
@@ -3540,7 +3581,6 @@
         td.classList.toggle('mark-est', src === 'est');
         td.classList.toggle('mark-gps', src === 'gps');
         td.classList.toggle('mark-manual', src === 'manual' || (!src));
-        // Prefijo visual por fuente: '~' estimada, '📡' GPS, '✋' manual.
         const prefix = src === 'est' ? '~ ' : (src === 'gps' ? '📡 ' : '✋ ');
         td.innerHTML = `<span>${prefix}${p}</span><span class="clear-x" title="Borrar">×</span>`;
       } else {
@@ -3729,7 +3769,7 @@
         // Fila activa fija a ~28% desde arriba: se mantiene arriba pero deja ver
         // algunas filas por encima. Se recalcula cada actualización. Umbral 24 px.
         const target = main.scrollTop + tr.getBoundingClientRect().top
-                       - main.getBoundingClientRect().top - main.clientHeight * 0.28;
+                       - main.getBoundingClientRect().top - main.clientHeight * 0.17;
         if(Math.abs(target - main.scrollTop) > 24){
           try{ main.scrollTo({top: target, behavior:'smooth'}); }
           catch(e){ main.scrollTop = target; }
@@ -3750,10 +3790,10 @@
   }
 
   // ---- punches ----
-  function punchAt(idx){
+  function punchAt(idx, kind){
     const t = liveMode ? nowMin() : manualOffsetMs;
     const h = Math.floor(t/60)%24, m = Math.floor(t%60);
-    setMarkAt(idx, pad(h)+':'+pad(m), 'manual');   // HOR-001: clave estable
+    setMarkAt(idx, pad(h)+':'+pad(m), 'manual', kind);   // HOR-001: clave estable
     // FIX C: con GPS activo, mantener el delta de la marca (icono clavado en ella); con GPS
     // apagado, null para que el icono avance por hora (FIX3 rellena las siguientes).
     provisionalDelay = (window.HTIryo && window.HTIryo.isTracking && window.HTIryo.isTracking())
@@ -3772,8 +3812,8 @@
       window.HTIryo.logManualMark(idx);
     }
   }
-  function clearPunch(idx){
-    if(clearMarkAt(idx)){                          // HOR-001: clave estable
+  function clearPunch(idx, kind){
+    if(clearMarkAt(idx, kind)){                    // HOR-001: clave estable
       provisionalDelay = null;
       savePunches();saveMarkSource();applyPunches();updatePosition();
     }
@@ -4191,14 +4231,20 @@
       const tr = e.target.closest('tr'); if(!tr)return;
       if(!tr.dataset.idx) return; // ignorar filas LTV
       const idx = +tr.dataset.idx;
-      if(e.target.classList.contains('clear-x')){clearPunch(idx);e.stopPropagation();return}
-      punchAt(idx);
+      const slot = e.target.closest('[data-kind]');
+      const kind = slot && slot.dataset.kind ? slot.dataset.kind : undefined;
+      if(e.target.classList.contains('clear-x')){clearPunch(idx, kind);e.stopPropagation();return}
+      if(e.target.classList.contains('punch-btn')){ punchAt(idx, kind); return; }
+      if(!isStopRow(idx)) punchAt(idx);
     });
     $('rows').addEventListener('contextmenu',e=>{
       const tr = e.target.closest('tr'); if(!tr)return;
       if(!tr.dataset.idx) return; // ignorar filas LTV
       e.preventDefault();
-      clearPunch(+tr.dataset.idx);
+      const idx = +tr.dataset.idx;
+      const slot = e.target.closest('[data-kind]');
+      const kind = slot && slot.dataset.kind ? slot.dataset.kind : undefined;
+      clearPunch(idx, kind);
     });
     let scrollT=null;
     $('schedule-pane').addEventListener('scroll',()=>{

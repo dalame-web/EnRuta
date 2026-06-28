@@ -255,10 +255,9 @@
   /* Dependencia / Teórica / Com — mismo tamaño que Km */
   td.name{font-size:15px;font-weight:600}
   td.time{font-size:15px;font-weight:600}
-  /* Paradas: llegada (arriba, tenue) y salida (abajo, destacada) apiladas. */
-  td.time .t-arr{display:block;font-size:11px;font-weight:500;color:var(--fg-dim);line-height:1.15}
+  /* Paradas: llegada y salida apiladas, mismo peso. */
+  td.time .t-arr{display:block;font-weight:700;line-height:1.15}
   td.time .t-dep{display:block;font-weight:700;line-height:1.15}
-  body.light td.time .t-arr{color:#5a6068}
   td.com{font-size:15px;font-weight:600}
   td.vmax,td.vmax.merged,tr.cdi-row td.vmax,tr.now td.vmax,td.vmax.merged.now-merged{text-align:right;color:#a0d2ff!important;padding-right:8px;font-weight:700;font-size:16px}
   /* VMáx con highlight gris (cuadro sombreado en el PDF original) */
@@ -335,10 +334,10 @@
   td.actual.mark-est span:first-child{font-style:italic;opacity:.85}
   td.actual .clear-x{cursor:pointer;color:var(--bad);margin-left:4px;font-weight:bold}
   /* Paradas: dos sub-marcas apiladas (L=llegada arriba, S=salida abajo). */
-  td.actual.stop-cell{padding:1px 2px;white-space:normal}
+  td.actual.stop-cell{padding:1px 2px;white-space:normal;text-align:center;align-items:center}
   td.actual .mk-slot{display:flex;align-items:center;gap:3px;line-height:1.25;white-space:nowrap}
-  td.actual .mk-slot + .mk-slot{margin-top:2px}
-  td.actual .mk-lbl{font-size:9px;font-weight:700;color:var(--fg-dim);min-width:9px;text-align:center}
+  td.actual .mk-slot + .mk-slot{margin-top:6px}
+  td.actual .mk-lbl{font-size:9px;font-weight:700;color:var(--fg-dim);text-align:center}
   td.actual .mk-slot.mark-gps{color:var(--ok)}
   td.actual .mk-slot.mark-est{color:var(--warn)}
   td.actual .mk-slot.mark-est span{font-style:italic;opacity:.85}
@@ -4638,8 +4637,8 @@ window.addEventListener('unload', ebulaClearAllData);
         // Parada: dos sub-marcas apiladas (llegada / salida).
         td.classList.add('stop-cell');
         td.classList.remove('punched','mark-est','mark-gps','mark-manual');
-        td.innerHTML = punchSlotHtml(idx,'a',trPunches,trSrc,'L')
-                     + punchSlotHtml(idx,'d',trPunches,trSrc,'S');
+        td.innerHTML = punchSlotHtml(idx,'a',trPunches,trSrc,'Llegada')
+                     + punchSlotHtml(idx,'d',trPunches,trSrc,'Salida');
         return;
       }
       td.classList.remove('stop-cell');
@@ -4804,7 +4803,7 @@ window.addEventListener('unload', ebulaClearAllData);
         // algunas filas por encima. Se recalcula cada actualización para que no se
         // descuelgue. Umbral de 24 px para evitar micro-scrolls en cada tick.
         const target = main.scrollTop + tr.getBoundingClientRect().top
-                       - main.getBoundingClientRect().top - main.clientHeight * 0.28;
+                       - main.getBoundingClientRect().top - main.clientHeight * 0.17;
         if(Math.abs(target - main.scrollTop) > 24){
           try{ main.scrollTo({top: target, behavior:'smooth'}); }
           catch(e){ main.scrollTop = target; }
