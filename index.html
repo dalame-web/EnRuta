@@ -206,6 +206,35 @@
   button.warn{background:#3a2a18;border-color:var(--warn);color:var(--warn)}
   button.bad{background:#3a1d1d;border-color:var(--bad);color:var(--bad)}
   #reset-punches{align-self:center;min-height:32px;padding:6px 10px}
+  /* BSL */
+  #bsl-btn{display:inline-flex;align-items:center;gap:5px;padding:4px 10px;
+    background:rgba(31,111,235,.14);border:1px solid #1f6feb;color:#58a6ff;
+    border-radius:5px;font-size:12px;font-weight:600;letter-spacing:.3px;white-space:nowrap;cursor:pointer}
+  #bsl-btn:hover{background:#1f6feb;color:#fff}
+  #bsl-btn.bsl-on{background:rgba(31,111,235,.28);border-color:#58a6ff;color:#58a6ff;animation:bslPulse 2s infinite}
+  @keyframes bslPulse{0%,100%{opacity:1}50%{opacity:.6}}
+  body.light #bsl-btn{color:#0550ae;border-color:#0550ae;background:rgba(5,80,174,.10)}
+  body.light #bsl-btn:hover{background:#0550ae;color:#fff}
+  body.light #bsl-btn.bsl-on{background:rgba(5,80,174,.18);border-color:#0550ae;color:#0550ae}
+  /* Modal BSL (mismo estilo base que appModal) */
+  .bsl-modal-overlay{position:fixed;inset:0;z-index:100001;display:flex;align-items:center;justify-content:center;
+    background:rgba(0,0,0,.6);padding:20px;opacity:0;pointer-events:none;transition:opacity .15s ease}
+  .bsl-modal-overlay.open{opacity:1;pointer-events:auto}
+  .bsl-modal-box{background:var(--panel);color:var(--fg);border:1px solid #1f6feb;border-radius:14px;
+    max-width:460px;width:100%;box-shadow:0 18px 50px rgba(0,0,0,.6);padding:20px 20px 16px;
+    transform:translateY(8px) scale(.98);transition:transform .15s ease;max-height:80vh;overflow-y:auto}
+  .bsl-modal-overlay.open .bsl-modal-box{transform:none}
+  .bsl-modal-title{font-size:16px;font-weight:700;margin:0 0 12px;color:#58a6ff;display:flex;align-items:center;gap:8px}
+  body.light .bsl-modal-title{color:#0550ae}
+  .bsl-item{border:1px solid var(--border);border-radius:8px;padding:10px 12px;margin-bottom:10px;background:var(--panel-2)}
+  .bsl-item:last-of-type{margin-bottom:14px}
+  .bsl-item-head{display:flex;align-items:center;gap:8px;font-weight:700;font-size:14px;margin-bottom:4px}
+  .bsl-item-body{font-size:12px;line-height:1.6;color:var(--fg)}
+  .bsl-item-body b{color:var(--fg);font-weight:700}
+  .bsl-item-zn .bsl-item-head{color:#a0d2ff}
+  .bsl-item-ltv .bsl-item-head{color:#ffd400}
+  body.light .bsl-item-zn .bsl-item-head{color:#0550ae}
+  body.light .bsl-item-ltv .bsl-item-head{color:#7a4f00}
   button.gps-btn{display:inline-flex;align-items:center;gap:5px;padding:4px 10px;
     background:rgba(63,185,80,.14);border:1px solid var(--ok);color:var(--ok);
     border-radius:5px;font-size:12px;font-weight:600;letter-spacing:.3px;white-space:nowrap}
@@ -2313,6 +2342,7 @@
       <select id="train" style="min-width:90px"></select>
     </span>
     <button id="reset-punches" class="bad" title="Borrar todos los pasos marcados">↺ Reset punteo</button>
+    <button id="bsl-btn" type="button" title="Activar/desactivar avisos BSL (Zonas Neutras y LTV)">⚠ BSL</button>
     <button id="gps-btn" type="button" class="gps-btn" style="margin-left:auto" title="Iniciar/parar el seguimiento GPS de la marcha">▶ Iniciar seguimiento GPS</button>
   </div>
   <div class="info-row">
@@ -4609,6 +4639,7 @@ window.addEventListener('unload', ebulaClearAllData);
   // Mejora 1: retraso provisional (minutos) confirmado por GPS sin marca aún.
   // Lo fija gps-tracking.js vía HTIryo.setProvisionalDelay; lo lee updatePosition.
   let provisionalDelay = null;
+  let _bslDelayMin = 0;
   function tickKey(){ return march ? (curGrp+'|'+march.t+'|'+march.o+'→'+march.d) : '_NONE_'; }
 
   // HTML de un slot de marca (una hora real o el botón "marcar"). kind 'a'/'d' en
@@ -4703,6 +4734,7 @@ window.addEventListener('unload', ebulaClearAllData);
       if(diff>12*60) diff -= 24*60;
       delayMin = diff;
     }
+    _bslDelayMin = delayMin;
 
     function effTm(i){
       const tm = stops[i].tm;
@@ -6160,6 +6192,220 @@ renderRows = function(){
   }
 };
 
+// ====== BSL — Avisos Zonas Neutras y LTV ======
+let bslActive = false;
+let bslAudioCtx = null;
+let bslAlerted = new Set();
+let _bslMarchRef = null;
+let _bslModalOpen = false;
+
+const ZN_ICON_SVG = '<svg class="zn-icon" viewBox="0 0 24 32" width="16" height="21" aria-hidden="true">'
+  +'<rect x="4" y="0" width="3.5" height="24" rx="1.5" fill="currentColor"/>'
+  +'<rect x="16.5" y="0" width="3.5" height="24" rx="1.5" fill="currentColor"/>'
+  +'<rect x="2" y="26" width="20" height="4" rx="2" fill="currentColor"/></svg>';
+
+const LTV_ICON_SVG = '<svg viewBox="0 0 24 24" width="16" height="16" aria-hidden="true" style="flex-shrink:0">'
+  +'<rect x="1" y="1" width="22" height="22" rx="4" fill="none" stroke="currentColor" stroke-width="2"/>'
+  +'<text x="12" y="16.5" text-anchor="middle" font-size="11" font-weight="800" fill="currentColor" font-family="system-ui,sans-serif">V</text>'
+  +'</svg>';
+
+function bslUnlockAudio(){
+  if(!bslAudioCtx) bslAudioCtx = new (window.AudioContext || window.webkitAudioContext)();
+  if(bslAudioCtx.state === 'suspended') bslAudioCtx.resume();
+}
+
+function bslPlaySound(){
+  try {
+    bslUnlockAudio();
+    const ctx = bslAudioCtx;
+    // Tres tonos suaves: sol-mi-sol
+    const freqs = [392, 330, 392];
+    let t = ctx.currentTime + 0.05;
+    freqs.forEach(function(f, i){
+      const osc = ctx.createOscillator();
+      const gain = ctx.createGain();
+      osc.connect(gain); gain.connect(ctx.destination);
+      osc.type = 'sine';
+      osc.frequency.setValueAtTime(f, t + i*0.22);
+      gain.gain.setValueAtTime(0, t + i*0.22);
+      gain.gain.linearRampToValueAtTime(0.18, t + i*0.22 + 0.04);
+      gain.gain.linearRampToValueAtTime(0, t + i*0.22 + 0.18);
+      osc.start(t + i*0.22);
+      osc.stop(t + i*0.22 + 0.22);
+    });
+  } catch(e){}
+}
+
+function bslShowAlert(items){
+  if(_bslModalOpen) return;
+  _bslModalOpen = true;
+
+  const overlay = document.createElement('div');
+  overlay.className = 'bsl-modal-overlay';
+  const box = document.createElement('div');
+  box.className = 'bsl-modal-box';
+  box.setAttribute('role','dialog');
+  box.setAttribute('aria-modal','true');
+
+  const title = document.createElement('div');
+  title.className = 'bsl-modal-title';
+  title.innerHTML = '⚠ Aviso BSL';
+  box.appendChild(title);
+
+  items.forEach(function(it){
+    const div = document.createElement('div');
+    if(it.type === 'zn'){
+      const d = it.data;
+      const kIni = d.k != null ? d.k.toFixed(3).replace('.',',') : '—';
+      const kFin = d.k_fin != null ? d.k_fin.toFixed(3).replace('.',',') : '—';
+      div.className = 'bsl-item bsl-item-zn';
+      div.innerHTML = '<div class="bsl-item-head">'+ZN_ICON_SVG+' Zona Neutra</div>'
+        +'<div class="bsl-item-body"><b>PK:</b> '+kIni+' — '+kFin+'</div>';
+    } else {
+      const d = it.data;
+      const kIni = (d.km_ini != null && !isNaN(d.km_ini)) ? d.km_ini.toFixed(3).replace('.',',') : '—';
+      const kFin = (d.km_fin != null && !isNaN(d.km_fin)) ? d.km_fin.toFixed(3).replace('.',',') : '—';
+      const vmax = d.vmax != null ? d.vmax+' km/h' : '—';
+      const via = d.via || '—';
+      const motivo = d.motivo || '';
+      const observ = d.observ || '';
+      div.className = 'bsl-item bsl-item-ltv';
+      div.innerHTML = '<div class="bsl-item-head">'+LTV_ICON_SVG+' Limitación Temporal de Velocidad</div>'
+        +'<div class="bsl-item-body">'
+        +'<b>PK:</b> '+kIni+' — '+kFin+'<br>'
+        +'<b>Vmáx:</b> '+vmax+'<br>'
+        +'<b>Vía:</b> '+via
+        +(motivo ? '<br><b>Motivo:</b> '+motivo : '')
+        +(observ ? '<br><b>Obs:</b> '+observ : '')
+        +'</div>';
+    }
+    box.appendChild(div);
+  });
+
+  const btn = document.createElement('button');
+  btn.className = 'modal-btn primary';
+  btn.style.width = '100%';
+  btn.textContent = 'Aceptar';
+  btn.addEventListener('click', function(){
+    overlay.classList.remove('open');
+    document.body.classList.remove('modal-open');
+    document.body.removeChild(overlay);
+    _bslModalOpen = false;
+  });
+  box.appendChild(btn);
+  overlay.appendChild(box);
+  document.body.appendChild(overlay);
+  requestAnimationFrame(function(){ overlay.classList.add('open'); });
+  document.body.classList.add('modal-open');
+  setTimeout(function(){ try{ btn.focus(); }catch(e){} }, 50);
+}
+
+function _bslPrevRealStop(stops, beforeIdx){
+  for(let i = beforeIdx - 1; i >= 0; i--){
+    if(stops[i].n && stops[i].tm != null) return i;
+  }
+  return -1;
+}
+
+function _bslAlertIdxForPK(stops, znK, ascending){
+  // Find stBefore = last real stop before znK in travel direction (in array order)
+  let stBefore = -1;
+  for(let i = 0; i < stops.length; i++){
+    const s = stops[i];
+    if(!s.n || s.tm == null || s.k == null) continue;
+    if(ascending ? (s.k < znK) : (s.k > znK)) stBefore = i;
+  }
+  if(stBefore < 0) return -1;
+  const dist = Math.abs(znK - stops[stBefore].k);
+  if(dist < 5) return _bslPrevRealStop(stops, stBefore);
+  return stBefore;
+}
+
+function bslCheck(){
+  if(!bslActive || !march || !march.s || _bslModalOpen) return;
+  if(march !== _bslMarchRef){ bslAlerted.clear(); _bslMarchRef = march; }
+
+  const stops = march.s;
+  const t = nowMin();
+
+  // Determine direction
+  let firstK = null, lastK = null;
+  for(const s of stops){
+    if(s.k == null || !s.n) continue;
+    if(firstK === null) firstK = s.k;
+    lastK = s.k;
+  }
+  const ascending = (firstK != null && lastK != null) ? (firstK <= lastK) : true;
+
+  const byAlertIdx = {};
+  function addAlert(alertIdx, item){
+    if(!byAlertIdx[alertIdx]) byAlertIdx[alertIdx] = [];
+    if(!byAlertIdx[alertIdx].some(function(x){ return x.key === item.key; }))
+      byAlertIdx[alertIdx].push(item);
+  }
+
+  // ZN rows in march.s
+  const ZN_FLAGS = ['_l010zn','_l030zn','_l040zn','_l042zn','_l050zn'];
+  for(let i = 0; i < stops.length; i++){
+    const s = stops[i];
+    if(!ZN_FLAGS.some(function(f){ return s[f]; })) continue;
+    if(s.k == null) continue;
+    const key = 'zn_'+i;
+    if(bslAlerted.has(key)) continue;
+    const aIdx = _bslAlertIdxForPK(stops, s.k, ascending);
+    if(aIdx < 0) continue;
+    addAlert(aIdx, { key: key, type: 'zn', data: { k: s.k, k_fin: s.k_fin } });
+  }
+
+  // LTVs visibles en el DOM (ya filtradas por renderRows)
+  document.querySelectorAll('#rows tr.ltv-row[data-ltv]').forEach(function(ltvTr){
+    const codigo = ltvTr.dataset.ltv;
+    const ltv = LTV_LIST.find(function(r){ return r.codigo === codigo; });
+    if(!ltv) return;
+    const key = 'ltv_'+codigo;
+    if(bslAlerted.has(key)) return;
+    const entryK = ascending ? Math.min(ltv.km_ini, ltv.km_fin) : Math.max(ltv.km_ini, ltv.km_fin);
+    if(isNaN(entryK)) return;
+    const aIdx = _bslAlertIdxForPK(stops, entryK, ascending);
+    if(aIdx < 0) return;
+    addAlert(aIdx, { key: key, type: 'ltv', data: ltv });
+  });
+
+  // Fire alerts whose time has been reached
+  Object.keys(byAlertIdx).forEach(function(idxStr){
+    const alertIdx = +idxStr;
+    const s = stops[alertIdx];
+    if(!s || s.tm == null) return;
+    const alertTime = s.tm + _bslDelayMin;
+    if(t < alertTime) return;
+    const pending = byAlertIdx[alertIdx].filter(function(it){ return !bslAlerted.has(it.key); });
+    if(pending.length === 0) return;
+    pending.forEach(function(it){ bslAlerted.add(it.key); });
+    bslPlaySound();
+    bslShowAlert(pending);
+  });
+}
+
+// Hookear bslCheck en updateLive
+const _origUpdateLive = updateLive;
+updateLive = function(){
+  _origUpdateLive();
+  bslCheck();
+};
+
+// Botón BSL
+(function(){
+  const btn = document.getElementById('bsl-btn');
+  if(!btn) return;
+  btn.addEventListener('click', function(){
+    bslUnlockAudio();
+    bslActive = !bslActive;
+    btn.classList.toggle('bsl-on', bslActive);
+    btn.title = bslActive ? 'BSL activo — pulsa para desactivar' : 'Activar avisos BSL (Zonas Neutras y LTV)';
+    if(!bslActive){ bslAlerted.clear(); _bslMarchRef = null; }
+  });
+})();
+
 // Init DHLTV
 loadLTVViaFilter();
 loadLTV();
@@ -6292,7 +6538,7 @@ renderLTVList();
 (function showSwVersion(){
   const el = document.getElementById('sw-version'); if(!el) return;
   const ORIGINAL_VER = 'ebula-v82';
-  const STUDIO_VER   = 'enruta-v14';
+  const STUDIO_VER   = 'enruta-v15';
   const LOC_VER      = 'loc.-V25';
   el.textContent = ORIGINAL_VER + ' | ' + STUDIO_VER + ' | ' + LOC_VER;
 })();
