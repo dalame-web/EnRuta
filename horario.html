@@ -3933,6 +3933,19 @@
     return best;
   }
 
+  // Añade el punto final sb al segPath garantizando que el último segmento sea ≤ 300m.
+  // Si es más largo, inserta un vértice al 70% para reducir la zona donde nearEnd (t>0.6)
+  // activa antes de llegar a la estación, minimizando los polls en estado geo_defer.
+  function _segPathAddEnd(segPath, sb){
+    const p = segPath[segPath.length - 1];
+    const dLat = (sb.lat - p[0]) * 111320;
+    const dLng = (sb.lng - p[1]) * 111320 * Math.cos(sb.lat * Math.PI / 180);
+    if(dLat * dLat + dLng * dLng > 90000){ // > 300m
+      segPath.push([p[0] + 0.7 * (sb.lat - p[0]), p[1] + 0.7 * (sb.lng - p[1])]);
+    }
+    segPath.push([sb.lat, sb.lng]);
+  }
+
   // Find which LAV line(s) a marcha uses, return ordered list of {line, polyline}.
   // Strategy: for each consecutive pair of stops with coords, find which LAV line both belong to,
   // and use that line's geometry. Concatenate results.
@@ -3966,12 +3979,12 @@
           // Forward direction
           segPath.push([sa.lat, sa.lng]);
           for(let k=sa.idx+1;k<=sb.idx;k++) segPath.push([pts[k][0],pts[k][1]]);
-          segPath.push([sb.lat, sb.lng]);
+          _segPathAddEnd(segPath, sb);
         } else {
           // Reverse direction
           segPath.push([sa.lat, sa.lng]);
           for(let k=sa.idx;k>sb.idx;k--) segPath.push([pts[k][0],pts[k][1]]);
-          segPath.push([sb.lat, sb.lng]);
+          _segPathAddEnd(segPath, sb);
         }
         path.push({line: bestLine, segPath: segPath, fromIdx: i, toIdx: i+1, fromName: stops[i].n, toName: stops[i+1].n, tFrom: stops[i].tm, tTo: stops[i+1].tm});
       } else {
