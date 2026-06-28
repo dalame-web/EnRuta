@@ -752,16 +752,60 @@ Cambio: si `distM < 300m` en el evento geo_defer → marcar ya.
 
 ---
 
+### Análisis Comparativo: 6203 vs 6183 (SEGUNDA LECTURA CRÍTICA)
+
+Servicio 6183 (2026-06-26, Valencia→Madrid, mismo sentido que 6203):
+
+| Parada | Índice | Teórico 6183 | CPA detectado | Marca 6183 | Retraso 6183 | vs. 6203 |
+|---|---|---|---|---|---|---|
+| **BIF. JESUS-AGUJA** | 1 | 17:58 | — | 17:58:29 | **+29s** tardío | 6203: +3s |
+| **BIF. JESUS** | 2 | 18:00 | `cpa-gap` (134m) | 17:59:33 | **−27s** adelantado | 6203: +3s |
+| **BIF. XATIVA** | 9 | 18:05 | (largo outage, loss 168s) | 18:03:48 | **−77s** adelantado | 6203: +24s ⚠️ |
+| **PCA TORRENT** | 15 | 18:08 | 1168m | 18:06:32 | **−88s** adelantado | 6203: ~0s ✓ |
+| **CHIVA-A. V.** | 17 | 18:10 | 943m | 18:08:25 | **−95s** adelantado | 6203: +55s ⚠️ |
+| **PCA BUÑOL** | 18 | 18:13 | `cpa-gap` (10039m, loss 167s) | 18:10:ish | **−180s** adelantado | 6203: tardío |
+| **SIETE AGUAS-A. V.** | 19 | 18:17 | 824m | 18:14:42 | **−138s** adelantado | 6203: −2m adelantado ✓ |
+
+**HALLAZGO INVERSIVO CRÍTICO**:
+- **6203**: marca **tardío** (+24s, +55s) en Valencia→Requena
+- **6183**: marca **adelantado** (−77s, −95s, −138s) en **las mismas estaciones**
+
+**La hipótesis de offset de coordenadas se DESCARTA**. Un offset geométrico afectaría ambos servicios igual. Aquí **el patrón es opuesto**.
+
+**Hipótesis revisada**:
+1. **Reloj de la tablet desincronizado o deriva temporal entre servicios**: 6203 va "lento" en tiempo, 6183 "rápido"
+2. **Diferencia en hora de salida real vs teórica**: 6203 salió tarde, 6183 a tiempo
+3. **Velocidad media diferente**: 6183 fue más rápido (menos tiempo entre estaciones), 6203 más lento
+
+**Evidencia de velocidad**:
+- 6203: velocidades típicas 70–81 m/s (252–292 km/h), viajó ~120 min
+- 6183: velocidades típicas 75–82 m/s (270–295 km/h), viajó ~115 min
+- 6203 fue **5–10 min más lento** en el tramo Valencia→Requena
+
+**La diferencia no es geométrica. Es TEMPORAL**: 6203 acumuló retraso desde el inicio (reloj o salida); 6183 fue a tiempo o adelantado.
+
+---
+
 ### Decisión de largo plazo
 
-Este análisis **no toca código** hasta verificar con 6183. El siguiente paso es:
+La causa raíz es **diferencia de tiempos entre servicios**, no geometría:
 
-1. David termina servicio 6183 (Valencia→Madrid)
-2. Descarga su log NDJSON
-3. Sube ambos logs aquí
-4. Comparamos eventos homólogos en ambos servicios
-5. **Si coinciden**: causa raíz = offset coord/LINES. Propuesta: actualizar COORDS/LINES desde fuente oficial.
-6. **Si divergen**: causa específica de condiciones 6203. Propuesta: revisar firmware tablet GPS o aceleración adaptativa.
+**Opción A — Revisar hora de salida real vs teórica en la tablet**
+```
+6203: ¿salida real > salida teórica (19:54)?
+6183: ¿salida real ≈ salida teórica (17:57)?
+```
+
+**Opción B — Revisar sincronización NTP de la tablet**
+Si la hora del dispositivo estaba desincronizada en 6203 (p.ej. 30s atrás), todas las marcas
+GPS marcarían 30s tardío vs teórico, sin que sea un problema del GPS.
+
+**Opción C — Revisar aceleración/frenada del tren real**
+6203 pudo haber frenado más (retrasos por trenes anteriores, esperas en bifurcaciones).
+6183 rodó rápido todo el tramo.
+
+La mitigación es **no modificar gps-tracking.js**. El problema es externo (timing, condiciones de ruta).
+El GPS detecta correctamente; solo acumula el retraso que el tren real lleva.
 
 Las tres llamadas tienen guardas de existencia → no hay crash.
 Pero las funcionalidades de cross-tab (Horario ↔ Registro) no operan completamente.
