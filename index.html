@@ -6421,16 +6421,19 @@ updateLive = function(){
         lastK = s.k;
       }
       const ascending = (firstK != null && lastK != null) ? (firstK <= lastK) : true;
-      // ZN en march.s
+      // Pre-marcar ZN/LTV que ya pasaron (basado en estación de aviso)
       const ZN_FLAGS = ['_l010zn','_l030zn','_l040zn','_l042zn','_l050zn'];
       for(let i = 0; i < stops.length; i++){
         const s = stops[i];
         if(!ZN_FLAGS.some(f => s[f])) continue;
-        if(s.tm != null && s.tm + _bslDelayMin < t){
+        if(s.k == null) continue;
+        // Para ZN, buscar su estación de aviso
+        const aIdx = _bslAlertIdxForPK(stops, s.k, ascending);
+        if(aIdx >= 0 && stops[aIdx].tm != null && stops[aIdx].tm + _bslDelayMin < t){
           bslAlerted.add('zn_'+i);
         }
       }
-      // LTVs visibles en el DOM
+      // LTVs ya pasadas
       document.querySelectorAll('#rows tr.ltv-row[data-ltv]').forEach(function(ltvTr){
         const codigo = ltvTr.dataset.ltv;
         const ltv = LTV_LIST.find(r => r.codigo === codigo);
