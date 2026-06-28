@@ -6441,6 +6441,33 @@ updateLive = function(){
           bslAlerted.add('ltv_'+codigo);
         }
       });
+      // Al activar, buscar la primera ZN/LTV futura y dispararla inmediatamente
+      let firstFuture = null;
+      // ZN futuras
+      for(let i = 0; i < stops.length; i++){
+        const s = stops[i];
+        if(!ZN_FLAGS.some(f => s[f])) continue;
+        if(!bslAlerted.has('zn_'+i)){
+          firstFuture = { type: 'zn', key: 'zn_'+i, data: { k: s.k, k_fin: s.k_fin }, idx: i };
+          break;
+        }
+      }
+      // LTVs futuras (si no hay ZN futura, buscar LTV)
+      if(!firstFuture){
+        document.querySelectorAll('#rows tr.ltv-row[data-ltv]').forEach(function(ltvTr){
+          if(firstFuture) return;
+          const codigo = ltvTr.dataset.ltv;
+          if(bslAlerted.has('ltv_'+codigo)) return;
+          const ltv = LTV_LIST.find(r => r.codigo === codigo);
+          if(ltv) firstFuture = { type: 'ltv', key: 'ltv_'+codigo, data: ltv, codigo: codigo };
+        });
+      }
+      // Disparar la primera futura inmediatamente
+      if(firstFuture){
+        bslAlerted.add(firstFuture.key);
+        bslPlaySound();
+        bslShowAlert([{ type: firstFuture.type, data: firstFuture.data }]);
+      }
     }
   });
 })();
