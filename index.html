@@ -207,13 +207,14 @@
   button.bad{background:#3a1d1d;border-color:var(--bad);color:var(--bad)}
   #reset-punches{align-self:center;min-height:32px;padding:6px 10px}
   /* BSL */
-  #bsl-btn{display:inline-flex;align-items:center;gap:5px;padding:4px 10px;
+  #bsl-btn{display:inline-flex;align-items:center;gap:5px;padding:6px 10px;min-height:32px;
     background:rgba(31,111,235,.14);border:1px solid #1f6feb;color:#58a6ff;
     border-radius:5px;font-size:12px;font-weight:600;letter-spacing:.3px;white-space:nowrap;cursor:pointer}
   #bsl-btn:hover{background:#1f6feb;color:#fff}
-  #bsl-btn.bsl-on{background:rgba(31,111,235,.28);border-color:#58a6ff;color:#58a6ff;animation:bslPulse 2s infinite}
-  @keyframes bslPulse{0%,100%{opacity:1}50%{opacity:.6}}
+  #bsl-btn.bsl-on{background:#0550ae;border-color:#0550ae;color:#fff;animation:bslPulse 2s infinite}
+  @keyframes bslPulse{0%,100%{opacity:1}50%{opacity:.7}}
   body.light #bsl-btn{color:#0550ae;border-color:#0550ae;background:rgba(5,80,174,.10)}
+  body.light #bsl-btn.bsl-on{background:#0550ae;color:#fff}
   body.light #bsl-btn:hover{background:#0550ae;color:#fff}
   body.light #bsl-btn.bsl-on{background:rgba(5,80,174,.18);border-color:#0550ae;color:#0550ae}
   /* Modal BSL (mismo estilo base que appModal) */
@@ -5252,6 +5253,7 @@ window.addEventListener('unload', ebulaClearAllData);
       var oldIdx = curIdx;
       var proceed = function(){
         curIdx=+e.target.value;
+        bslActive=false; (document.getElementById('bsl-btn')||{}).classList.remove('bsl-on'); bslAlerted.clear();
         renderHeader();
         if(oldKey && oldKey !== tickKey()) clearOldServiceData(oldKey);
         renderRows(); updatePosition(); savePrefs();
@@ -5484,6 +5486,7 @@ window.addEventListener('unload', ebulaClearAllData);
     if(i<0) return;
     var changed = (curIdx !== i);
     curIdx=i; $('train').value=i; renderHeader(); renderRows(); updatePosition(); savePrefs();
+    if(changed){ bslActive=false; (document.getElementById('bsl-btn')||{}).classList.remove('bsl-on'); bslAlerted.clear(); }
     if(!noNav) switchTab('schedule');
     // G3: si cambió de tren, notificar a gps-tracking para parar el tracking del march viejo.
     if(changed && window.HTIryo._dispatchMarchaChange) window.HTIryo._dispatchMarchaChange();
@@ -6402,7 +6405,43 @@ updateLive = function(){
     bslActive = !bslActive;
     btn.classList.toggle('bsl-on', bslActive);
     btn.title = bslActive ? 'BSL activo — pulsa para desactivar' : 'Activar avisos BSL (Zonas Neutras y LTV)';
-    if(!bslActive){ bslAlerted.clear(); _bslMarchRef = null; }
+    if(!bslActive){
+      bslAlerted.clear();
+      _bslMarchRef = null;
+    } else {
+      // Al activar, pre-marcar alertas ya pasadas (continuar desde donde esté el libro)
+      if(!march || !march.s) return;
+      const stops = march.s;
+      const t = nowMin();
+      // Dirección del recorrido
+      let firstK = null, lastK = null;
+      for(const s of stops){
+        if(s.k == null || !s.n) continue;
+        if(firstK === null) firstK = s.k;
+        lastK = s.k;
+      }
+      const ascending = (firstK != null && lastK != null) ? (firstK <= lastK) : true;
+      // ZN en march.s
+      const ZN_FLAGS = ['_l010zn','_l030zn','_l040zn','_l042zn','_l050zn'];
+      for(let i = 0; i < stops.length; i++){
+        const s = stops[i];
+        if(!ZN_FLAGS.some(f => s[f])) continue;
+        if(s.tm != null && s.tm + _bslDelayMin < t){
+          bslAlerted.add('zn_'+i);
+        }
+      }
+      // LTVs visibles en el DOM
+      document.querySelectorAll('#rows tr.ltv-row[data-ltv]').forEach(function(ltvTr){
+        const codigo = ltvTr.dataset.ltv;
+        const ltv = LTV_LIST.find(r => r.codigo === codigo);
+        if(!ltv) return;
+        const entryK = ascending ? Math.min(ltv.km_ini, ltv.km_fin) : Math.max(ltv.km_ini, ltv.km_fin);
+        const aIdx = _bslAlertIdxForPK(stops, entryK, ascending);
+        if(aIdx >= 0 && stops[aIdx].tm != null && stops[aIdx].tm + _bslDelayMin < t){
+          bslAlerted.add('ltv_'+codigo);
+        }
+      });
+    }
   });
 })();
 
