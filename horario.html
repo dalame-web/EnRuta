@@ -1724,7 +1724,7 @@
     });
   }
 
-  var AUTO_INTERVAL_MS = 60000;       // refresco cada 60 s
+  var AUTO_INTERVAL_MS = 300000;      // refresco cada 5 min (antes 60 s)
   var autoTimer = null;
   var nextAutoAt = 0;
   // Pesta\u00f1as que usan datos ADIF (v\u00eda/retraso aparecen en Horario y Mapa tambi\u00e9n)
@@ -5192,7 +5192,7 @@ renderLTVList();
   var NEG=/cercanias|rodalies|rodalia|media distancia|ancho convencional|ancho metrico|nucleo de|linea c[0-9]|linea r[0-9]/;
   var CACHE_KEY='ebula_estado_red_v3';
   var SEEN_KEY='ebula_estado_seen_v2';
-  var REFRESH_MS=120000;   // sondeo de fondo cada 2 min
+  var REFRESH_MS=1200000;  // sondeo cada 20 min (antes 2 min)
   var MIN_GAP=8000;        // no re-pedir más seguido que 8 s
   var lastFetch=0, inFlight=false;
   function esc(s){return String(s).replace(/[&<>"']/g,function(c){return {'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c];});}
@@ -5292,9 +5292,14 @@ renderLTVList();
       var t=e.target.closest && e.target.closest('[data-tab="adif"]');
       if(t) setTimeout(fetchLive,30);
     });
-    document.addEventListener('visibilitychange', function(){ if(!document.hidden) fetchLive(); });
+    document.addEventListener('visibilitychange', function(){
+      if(!document.hidden && document.querySelector('#adif-pane.active')
+         && (Date.now() - lastFetch) > REFRESH_MS) fetchLive();
+    });
     setTimeout(function(){ showCached(); fetchLive(); }, 600);
-    setInterval(function(){ if(!document.hidden) fetchLive(); }, REFRESH_MS);
+    setInterval(function(){
+      if(!document.hidden && document.querySelector('#adif-pane.active')) fetchLive();
+    }, REFRESH_MS);
   }
   if(document.readyState==='loading'){ document.addEventListener('DOMContentLoaded', bind); } else { bind(); }
 })();
