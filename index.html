@@ -6441,32 +6441,42 @@ updateLive = function(){
           bslAlerted.add('ltv_'+codigo);
         }
       });
-      // Al activar, buscar la primera ZN/LTV futura y dispararla inmediatamente
-      let firstFuture = null;
-      // ZN futuras
+      // Al activar, buscar ZN/LTV cercana (próxima 10-15 minutos) y dispararla
+      const nearby = [];
+      const PROXIMITY_MIN = 10;  // proximidad: próximos 10 minutos
+      // ZN cercanas
       for(let i = 0; i < stops.length; i++){
         const s = stops[i];
         if(!ZN_FLAGS.some(f => s[f])) continue;
-        if(!bslAlerted.has('zn_'+i)){
-          firstFuture = { type: 'zn', key: 'zn_'+i, data: { k: s.k, k_fin: s.k_fin }, idx: i };
-          break;
+        if(s.tm != null && !bslAlerted.has('zn_'+i)){
+          const alertTm = s.tm + _bslDelayMin;
+          if(alertTm >= t && alertTm <= t + PROXIMITY_MIN){
+            nearby.push({ type: 'zn', key: 'zn_'+i, data: { k: s.k, k_fin: s.k_fin }, tm: alertTm });
+          }
         }
       }
-      // LTVs futuras (si no hay ZN futura, buscar LTV)
-      if(!firstFuture){
-        document.querySelectorAll('#rows tr.ltv-row[data-ltv]').forEach(function(ltvTr){
-          if(firstFuture) return;
-          const codigo = ltvTr.dataset.ltv;
-          if(bslAlerted.has('ltv_'+codigo)) return;
-          const ltv = LTV_LIST.find(r => r.codigo === codigo);
-          if(ltv) firstFuture = { type: 'ltv', key: 'ltv_'+codigo, data: ltv, codigo: codigo };
-        });
-      }
-      // Disparar la primera futura inmediatamente
-      if(firstFuture){
-        bslAlerted.add(firstFuture.key);
+      // LTVs cercanas
+      document.querySelectorAll('#rows tr.ltv-row[data-ltv]').forEach(function(ltvTr){
+        const codigo = ltvTr.dataset.ltv;
+        if(bslAlerted.has('ltv_'+codigo)) return;
+        const ltv = LTV_LIST.find(r => r.codigo === codigo);
+        if(!ltv) return;
+        const entryK = ascending ? Math.min(ltv.km_ini, ltv.km_fin) : Math.max(ltv.km_ini, ltv.km_fin);
+        const aIdx = _bslAlertIdxForPK(stops, entryK, ascending);
+        if(aIdx >= 0 && stops[aIdx].tm != null){
+          const alertTm = stops[aIdx].tm + _bslDelayMin;
+          if(alertTm >= t && alertTm <= t + PROXIMITY_MIN){
+            nearby.push({ type: 'ltv', key: 'ltv_'+codigo, data: ltv, tm: alertTm });
+          }
+        }
+      });
+      // Disparar la más próxima (menor tiempo)
+      if(nearby.length > 0){
+        nearby.sort((a,b) => a.tm - b.tm);
+        const closest = nearby[0];
+        bslAlerted.add(closest.key);
         bslPlaySound();
-        bslShowAlert([{ type: firstFuture.type, data: firstFuture.data }]);
+        bslShowAlert([{ type: closest.type, data: closest.data }]);
       }
     }
   });
