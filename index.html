@@ -5,14 +5,14 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=2.0, viewport-fit=cover">
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="mobile-web-app-capable" content="yes">
-<meta name="apple-mobile-web-app-title" content="Iryo Studio">
-<meta name="application-name" content="Iryo Studio">
+<meta name="apple-mobile-web-app-title" content="EnRuta">
+<meta name="application-name" content="EnRuta">
 <meta name="theme-color" content="#e8201c">
 <link rel="manifest" href="./manifest.webmanifest">
 <link rel="icon" type="image/svg+xml" href="./icon.svg">
 <link rel="icon" type="image/png" sizes="192x192" href="./icon-192.png">
 <link rel="apple-touch-icon" href="./icon-192.png">
-<title>Iryo Studio</title>
+<title>EnRuta</title>
 <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" crossorigin="">
 <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js" crossorigin=""></script>
 <link rel="preconnect" href="https://fonts.googleapis.com">
@@ -1342,12 +1342,12 @@
   .badge.en_curso{background:rgba(240,136,62,.18); color:var(--warn)}
   .badge.cerrado{background:rgba(63,185,80,.18); color:var(--ok)}
 
-  /* ==== IRYO STUDIO ==== */
+  /* ==== ENRUTA ==== */
   /* RV panes por ID (evita conflicto con .pane de HT) */
   #calendario-pane,#registro-pane,#estadisticas-pane,#ajustes-pane{display:none}
   #calendario-pane.active,#registro-pane.active,#estadisticas-pane.active,#ajustes-pane.active{display:block}
 
-  /* === Iryo Studio: sub-nav Calendario === */
+  /* === EnRuta: sub-nav Calendario === */
   #cal-subnav{display:none}
   body.tab-calendario #cal-subnav,
   body.tab-estadisticas #cal-subnav,
@@ -1570,7 +1570,7 @@
 </script>
 <div id="login-overlay">
   <form class="login-card" id="login-form" autocomplete="off" data-form-type="other" novalidate>
-    <h1>Iryo Studio</h1>
+    <h1>EnRuta</h1>
     <div class="login-sub">Acceso restringido</div>
     <input type="text" id="login-pass" inputmode="numeric"
       autocomplete="one-time-code" pattern="[0-9]*"
@@ -1626,10 +1626,10 @@
   });
 })();
 </script>
-<div id="pwa-install" role="dialog" aria-label="Instalar Iryo Studio">
+<div id="pwa-install" role="dialog" aria-label="Instalar EnRuta">
   <span class="pwa-icon">📲</span>
   <div class="pwa-text">
-    <span>Instalar Iryo Studio</span>
+    <span>Instalar EnRuta</span>
     <small>Acceso rápido desde tu pantalla de inicio</small>
   </div>
   <button id="pwa-install-btn" type="button">INSTALAR</button>
@@ -2403,7 +2403,7 @@
       <text x="300" y="650" text-anchor="middle" font-family="Poppins,sans-serif" font-weight="800" font-size="68" fill="#fff" letter-spacing="-3">iryo</text>
     </svg>
     <div class="home-overlay">
-      <div class="home-title">Iryo Studio</div>
+      <div class="home-title">EnRuta</div>
       <div class="home-subtitle">Web no oficial</div>
       <div class="home-version" id="sw-version">ebula-v.</div>
       <div class="home-author">Autor: David Mu&ntilde;oz Primo</div>
@@ -4007,7 +4007,7 @@ function ebulaClearAllData(){
   // Borra solo claves efímeras de HT; preserva datos de Studio (rviryo_*, PIN, tema).
   try {
     var KEEP = ['rviryo_turnos_v1','rviryo_settings_v1','ebula_auth_v1',
-                'ebula_theme','ebula_overlay_collapsed','iryostudio_active_tab'];
+                'ebula_theme','ebula_overlay_collapsed','enruta_active_tab'];
     Object.keys(localStorage).forEach(function(k){
       if (KEEP.indexOf(k) === -1) localStorage.removeItem(k);
     });
@@ -6292,7 +6292,7 @@ renderLTVList();
 (function showSwVersion(){
   const el = document.getElementById('sw-version'); if(!el) return;
   const ORIGINAL_VER = 'ebula-v82';
-  const STUDIO_VER   = 'iryostudio-v13';
+  const STUDIO_VER   = 'enruta-v13';
   const LOC_VER      = 'loc.-V25';
   el.textContent = ORIGINAL_VER + ' | ' + STUDIO_VER + ' | ' + LOC_VER;
 })();

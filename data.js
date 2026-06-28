@@ -1,4 +1,4 @@
-/* Iryo Studio — data.js
+/* EnRuta — data.js
  * Expone window.HT_DATA (desde el JSON embebido en index.html) y construye
  * window.RV_HORARIOS en el formato que espera registro.js (array de tramos,
  * equivalente a lo que generaba _build_horarios.py de RV).

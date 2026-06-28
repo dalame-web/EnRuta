@@ -1,6 +1,6 @@
 {
-  "name": "Iryo Studio",
-  "short_name": "Iryo Studio",
+  "name": "EnRuta",
+  "short_name": "EnRuta",
   "start_url": "./index.html",
   "display": "standalone",
   "theme_color": "#e8201c",

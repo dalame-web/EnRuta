@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
-<title>Iryo Studio — Diagnóstico de almacenamiento</title>
+<title>EnRuta — Diagnóstico de almacenamiento</title>
 <style>
   :root{ --bg:#0d1117; --panel:#161b22; --border:#30363d; --fg:#e6edf3;
          --dim:#8b949e; --iryo:#e8201c; --ok:#2ea043; --bad:#f85149; --warn:#d29922; }
@@ -37,7 +37,7 @@
 </head>
 <body>
   <h1>Diagnóstico de almacenamiento</h1>
-  <p class="sub">Iryo Studio · comprueba qué puede hacer tu navegador con archivos</p>
+  <p class="sub">EnRuta · comprueba qué puede hacer tu navegador con archivos</p>
 
   <div class="card" id="results"></div>
 
@@ -51,7 +51,7 @@
     <div class="d" style="margin:6px 0 4px">
       No basta con que la función exista. Pulsa para crear de verdad un archivo
       en una carpeta que elijas. Luego comprueba en tu explorador de archivos que
-      aparece <b>iryo-studio-prueba.txt</b>.
+      aparece <b>enruta-prueba.txt</b>.
     </div>
     <button id="btn-carpeta" style="background:#1f6feb">🗂️ Probar: elegir carpeta y crear archivo</button>
     <button id="btn-guardar" style="background:#1f6feb">💾 Probar: guardar un archivo suelto</button>
@@ -169,9 +169,9 @@
     showRes('Abriendo selector de carpeta…', true);
     try {
       var dir = await window.showDirectoryPicker({ mode: 'readwrite' });
-      var fh = await dir.getFileHandle('iryo-studio-prueba.txt', { create: true });
+      var fh = await dir.getFileHandle('enruta-prueba.txt', { create: true });
       var w = await fh.createWritable();
-      var contenido = 'Prueba Iryo Studio OK — ' + new Date().toISOString();
+      var contenido = 'Prueba EnRuta OK — ' + new Date().toISOString();
       await w.write(contenido);
       await w.close();
       // Leer de vuelta para confirmar
@@ -181,7 +181,7 @@
       showRes('✅ <b>FUNCIONA DE VERDAD.</b><br>Carpeta elegida: <b>' + (dir.name||'(raíz)') +
         '</b><br>Archivo creado y releído correctamente.<br><br>' +
         'Ahora abre tu <b>explorador de archivos</b> y comprueba que ves ' +
-        '<b>iryo-studio-prueba.txt</b> en esa carpeta. Si lo ves → confirmado al 100%.', ok);
+        '<b>enruta-prueba.txt</b> en esa carpeta. Si lo ves → confirmado al 100%.', ok);
     } catch(e){
       var msg = (e && e.name === 'AbortError')
         ? '⚠️ Cancelaste el selector. Vuelve a pulsar y elige una carpeta para probar.'
@@ -195,14 +195,14 @@
     showRes('Abriendo diálogo de guardar…', true);
     try {
       var fh = await window.showSaveFilePicker({
-        suggestedName: 'iryo-studio-prueba.json',
+        suggestedName: 'enruta-prueba.json',
         types: [{ description: 'JSON', accept: { 'application/json': ['.json'] } }]
       });
       var w = await fh.createWritable();
       await w.write(JSON.stringify({ prueba: true, fecha: new Date().toISOString() }));
       await w.close();
       showRes('✅ <b>Guardar archivo FUNCIONA.</b><br>Comprueba en tu explorador que ' +
-        'aparece <b>' + (fh.name || 'iryo-studio-prueba.json') + '</b>.', true);
+        'aparece <b>' + (fh.name || 'enruta-prueba.json') + '</b>.', true);
     } catch(e){
       var msg = (e && e.name === 'AbortError')
         ? '⚠️ Cancelaste el diálogo. Vuelve a pulsar para probar.'
@@ -212,7 +212,7 @@
   });
 
   window.copiar = function(){
-    var txt = 'INFORME IRYO STUDIO\n' + JSON.stringify(window.__informe || checks, null, 2);
+    var txt = 'INFORME ENRUTA\n' + JSON.stringify(window.__informe || checks, null, 2);
     if (navigator.clipboard && navigator.clipboard.writeText) {
       navigator.clipboard.writeText(txt).then(function(){ alert('Informe copiado. Pégalo en el chat.'); },
         function(){ alert('No se pudo copiar. Haz una captura de pantalla.'); });

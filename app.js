@@ -1,4 +1,4 @@
-/* Iryo Studio — app.js
+/* EnRuta — app.js
  * Hook sobre el nav nativo de HT. Cuando HT cambia body.tab-X,
  * delegamos a window.REGISTRO.switchTo para renderizar las vistas RV.
  * También gestiona el sub-nav de Calendario y los cross-feed entre apps.
@@ -54,7 +54,7 @@
     if (name === lastTab) return;
     var prev = lastTab;
     lastTab = name;
-    localStorage.setItem('iryostudio_active_tab', name);
+    localStorage.setItem('enruta_active_tab', name);
 
     // Al salir de Registro: descartar el turno blank si quedó vacío.
     // Evita que el calendario muestre turnos ghost.
@@ -131,7 +131,7 @@
 
   // Restaurar última tab al cargar (tras desbloqueo PIN).
   function restoreTab() {
-    var last = localStorage.getItem('iryostudio_active_tab') || 'home';
+    var last = localStorage.getItem('enruta_active_tab') || 'home';
     var btn = document.querySelector('.tab[data-tab="' + last + '"]');
     if (btn) { btn.click(); return; }
     var sb = document.querySelector('.cal-sub-btn[data-cal-sub="' + last + '"]');
