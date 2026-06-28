@@ -752,60 +752,141 @@ Cambio: si `distM < 300m` en el evento geo_defer → marcar ya.
 
 ---
 
-### Análisis Comparativo: 6203 vs 6183 (SEGUNDA LECTURA CRÍTICA)
+### Análisis Comparativo Definitivo: 6203 vs 6183 vs 6142
 
-Servicio 6183 (2026-06-26, Valencia→Madrid, mismo sentido que 6203):
+Datos disponibles de tres servicios:
+- **6203** (2026-06-27): Valencia→Madrid
+- **6183** (2026-06-26): Valencia→Madrid
+- **6142** (playback en log de 6183, día anterior): Madrid→Valencia
 
-| Parada | Índice | Teórico 6183 | CPA detectado | Marca 6183 | Retraso 6183 | vs. 6203 |
+#### Distancias CPA en el tramo Valencia–Requena, por sentido:
+
+| Parada | 6142 (Mad→Val) geo_defer | 6142 CPA dist | 6183 (Val→Mad) geo_defer | 6183 CPA dist | 6203 (Val→Mad) geo_defer |6203 CPA dist |
 |---|---|---|---|---|---|---|
-| **BIF. JESUS-AGUJA** | 1 | 17:58 | — | 17:58:29 | **+29s** tardío | 6203: +3s |
-| **BIF. JESUS** | 2 | 18:00 | `cpa-gap` (134m) | 17:59:33 | **−27s** adelantado | 6203: +3s |
-| **BIF. XATIVA** | 9 | 18:05 | (largo outage, loss 168s) | 18:03:48 | **−77s** adelantado | 6203: +24s ⚠️ |
-| **PCA TORRENT** | 15 | 18:08 | 1168m | 18:06:32 | **−88s** adelantado | 6203: ~0s ✓ |
-| **CHIVA-A. V.** | 17 | 18:10 | 943m | 18:08:25 | **−95s** adelantado | 6203: +55s ⚠️ |
-| **PCA BUÑOL** | 18 | 18:13 | `cpa-gap` (10039m, loss 167s) | 18:10:ish | **−180s** adelantado | 6203: tardío |
-| **SIETE AGUAS-A. V.** | 19 | 18:17 | 824m | 18:14:42 | **−138s** adelantado | 6203: −2m adelantado ✓ |
+| **BIF. JESUS** | 55m → **marca directa** | — | 133m → espera | 134m (cpa-gap) | ~0m → saltada | — |
+| **BIF. XATIVA** | 78m → **marca directa** | — | — (outage) | 578m | 70m → espera | **981m** |
+| **PCA TORRENT** | — | 1245m | — | 1168m | 57m → espera | **1406m** |
+| **CHIVA-A. V.** | 782m → espera | 1192m | — | 943m | 363m → espera | **1057m** |
+| **PCA BUÑOL** | 490m → espera | 1735m | — | 10039m (cpa-gap) | 1876m → espera | 9272m (cpa-gap) |
+| **SIETE AGUAS** | 95m → espera | 1278m | 513m → espera | 824m | 937m → **marca directa** | — |
 
-**HALLAZGO INVERSIVO CRÍTICO**:
-- **6203**: marca **tardío** (+24s, +55s) en Valencia→Requena
-- **6183**: marca **adelantado** (−77s, −95s, −138s) en **las mismas estaciones**
+**Patrón claro en Madrid→Valencia (6142)**:
+- BIF. JESUS: geo_defer 55m, `stillApproaching=false` → **marca inmediata**
+- BIF. XATIVA: geo_defer 78m, `stillApproaching=false` → **marca inmediata**
+- El mínimo haversine a COORDS ya pasó cuando la geometría activa `nearEnd`
 
-**La hipótesis de offset de coordenadas se DESCARTA**. Un offset geométrico afectaría ambos servicios igual. Aquí **el patrón es opuesto**.
-
-**Hipótesis revisada**:
-1. **Reloj de la tablet desincronizado o deriva temporal entre servicios**: 6203 va "lento" en tiempo, 6183 "rápido"
-2. **Diferencia en hora de salida real vs teórica**: 6203 salió tarde, 6183 a tiempo
-3. **Velocidad media diferente**: 6183 fue más rápido (menos tiempo entre estaciones), 6203 más lento
-
-**Evidencia de velocidad**:
-- 6203: velocidades típicas 70–81 m/s (252–292 km/h), viajó ~120 min
-- 6183: velocidades típicas 75–82 m/s (270–295 km/h), viajó ~115 min
-- 6203 fue **5–10 min más lento** en el tramo Valencia→Requena
-
-**La diferencia no es geométrica. Es TEMPORAL**: 6203 acumuló retraso desde el inicio (reloj o salida); 6183 fue a tiempo o adelantado.
+**Patrón claro en Valencia→Madrid (6203, 6183)**:
+- BIF. XATIVA: geo_defer 70m, `stillApproaching=true` → espera CPA → detectado a 981m
+- PCA TORRENT: geo_defer 57m, `stillApproaching=true` → espera CPA → detectado a 1406m
+- El mínimo haversine NO ha llegado todavía cuando la geometría activa `nearEnd`
 
 ---
 
-### Decisión de largo plazo
+### Causa Raíz Real: Divergencia entre métrica geométrica y métrica de distancia
 
-La causa raíz es **diferencia de tiempos entre servicios**, no geometría:
+El GPS combina **dos detectores independientes** que deben coincidir para marcar:
 
-**Opción A — Revisar hora de salida real vs teórica en la tablet**
 ```
-6203: ¿salida real > salida teórica (19:54)?
-6183: ¿salida real ≈ salida teórica (17:57)?
+Detector A — Geometría (snapToPolyline):
+  nearEnd = (snap.idx >= segPath.length - 2 && snap.t > 0.6)
+  Si nearEnd → passedOrigIdx = toIdx → "el tren pasó la estación"
+
+Detector B — Distancia haversine:
+  distM = haversineMeters(tren, COORDS[estacion])
+  Si distM subiendo dos veces → CPA confirmado → "el tren pasó el mínimo"
 ```
 
-**Opción B — Revisar sincronización NTP de la tablet**
-Si la hora del dispositivo estaba desincronizada en 6203 (p.ej. 30s atrás), todas las marcas
-GPS marcarían 30s tardío vs teórico, sin que sea un problema del GPS.
+El `geo_defer` se activa cuando **A dice "pasó" pero B dice "aún acercándose"**:
+```js
+if(pr.passedOrigIdx === gpsNextIdx && stillApproaching){
+    geo_defer: esperar al mínimo CPA
+}
+```
 
-**Opción C — Revisar aceleración/frenada del tren real**
-6203 pudo haber frenado más (retrasos por trenes anteriores, esperas en bifurcaciones).
-6183 rodó rápido todo el tramo.
+**¿Por qué A y B no coinciden?**
 
-La mitigación es **no modificar gps-tracking.js**. El problema es externo (timing, condiciones de ruta).
-El GPS detecta correctamente; solo acumula el retraso que el tren real lleva.
+El segPath de cada segmento (construido en `buildMarchaPath`) termina en `sb`:
+```
+sb = snapToPolyline(COORDS[B], LINES[linea])
+```
+
+`sb` es la **proyección de COORDS[B] sobre la polilínea**. El último vértice del segPath es `sb`, y el "Detector A" activa cuando el tren llega cerca de ese punto final.
+
+Pero el "Detector B" mide la distancia a **COORDS[B]** directamente — que puede estar desplazada de `sb` si la coordenada no cae exactamente sobre la polilínea.
+
+**El último segmento del segPath**:
+
+En sentido Valencia→Madrid (caso "Reverse" en buildMarchaPath cuando LINES va Madrid→Valencia):
+```
+segPath = [sa] → [pts[sa.idx]] → [pts[sa.idx-1]] → ... → [pts[sb.idx+1]] → [sb]
+```
+El último segmento va de `pts[sb.idx+1]` a `sb`.
+
+En sentido Madrid→Valencia (caso "Forward"):
+```  
+segPath = [sa] → [pts[sa.idx+1]] → ... → [pts[sb.idx]] → [sb]
+```
+El último segmento va de `pts[sb.idx]` a `sb`.
+
+**La longitud de este último segmento** determina cuánto puede alejarse el tren de `sb` antes de que `nearEnd` se active (t > 0.6 desde el punto anterior). Si el último segmento es largo:
+- `nearEnd` activa cuando el tren está al **60% del último segmento**, todavía lejos de `sb`
+- El mínimo haversine a COORDS[B] no se ha alcanzado aún → `stillApproaching=true` → `geo_defer`
+- El CPA debe esperar el siguiente sondeo (30s → ~2500m recorridos) para confirmar el mínimo
+
+**La asimetría de sentido** ocurre porque el último segmento del segPath tiene longitud diferente según el sentido, por la distribución irregular de vértices en las polilíneas LINES:
+
+- **Madrid→Valencia** (llegando a las bifurcaciones cerca de Valencia): los vértices de LINES están densamente espaciados cerca de Valencia (las bifurcaciones JESUS, XATIVA son puntos de cambio frecuente) → último segmento corto → `nearEnd` activa con el tren muy cerca de `sb` → distancia haversine ya en su mínimo → `stillApproaching=false` → **marca directa**
+
+- **Valencia→Madrid** (saliendo de Valencia hacia Requena): los vértices de LINES están espaciados más ampliamente en la dirección opuesta → último segmento largo → `nearEnd` activa con el tren aún a 50-400m de `sb` y la distancia haversine aún bajando → `geo_defer` → **espera CPA tardío**
+
+---
+
+### Verificación en consola
+
+Para confirmar esta hipótesis, ejecutar en DevTools con el servicio 6203/6183 cargado:
+
+```js
+// Ver longitud del último segmento para las estaciones problemáticas
+const path = window.HTIryo.getPath(window.HTIryo.getMarch());
+path.forEach(seg => {
+  const last = seg.segPath;
+  const n = last.length;
+  if(n < 2) return;
+  // Longitud del último segmento (euclidiana aprox en km)
+  const p1 = last[n-2], p2 = last[n-1];
+  const dLat = (p2[0]-p1[0]) * 111.32;
+  const dLng = (p2[1]-p1[1]) * Math.cos(p1[0]*Math.PI/180) * 111.32;
+  const km = Math.sqrt(dLat*dLat + dLng*dLng);
+  if(km > 0.5) // solo los tramos con último segmento largo
+    console.log(`${seg.fromName} → ${seg.toName}: último segmento=${(km*1000).toFixed(0)}m, nVértices=${n}`);
+});
+```
+
+Un último segmento largo (>500m) en el tramo Valencia-Requena confirmaría que `nearEnd` activa demasiado pronto, causando el `geo_defer` prolongado.
+
+---
+
+### Solución
+
+**Sin tocar gps-tracking.js** (regla dura):
+
+**Opción 1 — Añadir vértices a LINES en el tramo problemático** (en `horario.html`)
+Añadir vértices intermedios a la polilínea LINES en las secciones donde el último segmento del segPath es largo. Esto acorta ese segmento y hace que `nearEnd` active más cerca de `sb`, sincronizando mejor los dos detectores.
+
+**Opción 2 — Ajustar coordenadas COORDS** (en `horario.html`)
+Desplazar ligeramente las coordenadas de las estaciones problemáticas para que su proyección `sb` sobre LINES coincida con el punto donde el mínimo haversine real ocurre.
+
+**Opción 3 — Reducir el umbral `nearEnd`** de `t > 0.6` a `t > 0.9`
+Haría que la geometría sea más tardía en confirmar "ya pasó". Reduciría el número de `geo_defer` espúreos, pero en tramos con geometría correcta podría atrasar marcas que hoy salen bien. Requiere tocar gps-tracking.js → **PROHIBIDO**.
+
+**Recomendación: Opción 1** — añadir vértices intermedios a LINES en el segmento Valencia-Requena es cirugía local en horario.html sin tocar GPS y sin riesgo de regresiones en otros tramos.
+
+---
+
+### Decisión
+
+**No se modifica código hasta tener confirmación** de la verificación en consola.
+El paso siguiente es: con el servicio 6203 o 6183 cargado en la tablet, ejecutar el snippet de arriba y anotar qué segmentos tienen último tramo > 500m. Si son XATIVA, TORRENT, CHIVA → causa confirmada → proceder con Opción 1.
 
 Las tres llamadas tienen guardas de existencia → no hay crash.
 Pero las funcionalidades de cross-tab (Horario ↔ Registro) no operan completamente.
