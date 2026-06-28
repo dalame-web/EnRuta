@@ -212,7 +212,7 @@
   });
 
   window.copiar = function(){
-    var txt = 'INFORME ENRUTA\n' + JSON.stringify(window.__informe || checks, null, 2);
+    var txt = 'INFORME EnRuta\n' + JSON.stringify(window.__informe || checks, null, 2);
     if (navigator.clipboard && navigator.clipboard.writeText) {
       navigator.clipboard.writeText(txt).then(function(){ alert('Informe copiado. Pégalo en el chat.'); },
         function(){ alert('No se pudo copiar. Haz una captura de pantalla.'); });
