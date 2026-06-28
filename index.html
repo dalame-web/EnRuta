@@ -6441,42 +6441,43 @@ updateLive = function(){
           bslAlerted.add('ltv_'+codigo);
         }
       });
-      // Al activar, buscar ZN/LTV cercana (próxima 10-15 minutos) y dispararla
-      const nearby = [];
-      const PROXIMITY_MIN = 10;  // proximidad: próximos 10 minutos
-      // ZN cercanas
+      // Buscar posición actual: última estación cuya hora ya pasó
+      let currentPosIdx = -1;
       for(let i = 0; i < stops.length; i++){
         const s = stops[i];
+        if(s.tm != null && s.tm + _bslDelayMin <= t) currentPosIdx = i;
+      }
+      // Buscar la primera ZN/LTV que viene DESPUÉS de donde estoy
+      let firstAhead = null;
+      // ZN futuras (después de currentPosIdx)
+      for(let i = currentPosIdx + 1; i < stops.length; i++){
+        const s = stops[i];
         if(!ZN_FLAGS.some(f => s[f])) continue;
-        if(s.tm != null && !bslAlerted.has('zn_'+i)){
-          const alertTm = s.tm + _bslDelayMin;
-          if(alertTm >= t && alertTm <= t + PROXIMITY_MIN){
-            nearby.push({ type: 'zn', key: 'zn_'+i, data: { k: s.k, k_fin: s.k_fin }, tm: alertTm });
-          }
+        if(!bslAlerted.has('zn_'+i)){
+          firstAhead = { type: 'zn', key: 'zn_'+i, data: { k: s.k, k_fin: s.k_fin } };
+          break;
         }
       }
-      // LTVs cercanas
-      document.querySelectorAll('#rows tr.ltv-row[data-ltv]').forEach(function(ltvTr){
-        const codigo = ltvTr.dataset.ltv;
-        if(bslAlerted.has('ltv_'+codigo)) return;
-        const ltv = LTV_LIST.find(r => r.codigo === codigo);
-        if(!ltv) return;
-        const entryK = ascending ? Math.min(ltv.km_ini, ltv.km_fin) : Math.max(ltv.km_ini, ltv.km_fin);
-        const aIdx = _bslAlertIdxForPK(stops, entryK, ascending);
-        if(aIdx >= 0 && stops[aIdx].tm != null){
-          const alertTm = stops[aIdx].tm + _bslDelayMin;
-          if(alertTm >= t && alertTm <= t + PROXIMITY_MIN){
-            nearby.push({ type: 'ltv', key: 'ltv_'+codigo, data: ltv, tm: alertTm });
+      // LTVs futuras (si no hay ZN futura)
+      if(!firstAhead){
+        document.querySelectorAll('#rows tr.ltv-row[data-ltv]').forEach(function(ltvTr){
+          if(firstAhead) return;
+          const codigo = ltvTr.dataset.ltv;
+          if(bslAlerted.has('ltv_'+codigo)) return;
+          const ltv = LTV_LIST.find(r => r.codigo === codigo);
+          if(!ltv) return;
+          const entryK = ascending ? Math.min(ltv.km_ini, ltv.km_fin) : Math.max(ltv.km_ini, ltv.km_fin);
+          const aIdx = _bslAlertIdxForPK(stops, entryK, ascending);
+          if(aIdx > currentPosIdx){
+            firstAhead = { type: 'ltv', key: 'ltv_'+codigo, data: ltv };
           }
-        }
-      });
-      // Disparar la más próxima (menor tiempo)
-      if(nearby.length > 0){
-        nearby.sort((a,b) => a.tm - b.tm);
-        const closest = nearby[0];
-        bslAlerted.add(closest.key);
+        });
+      }
+      // Disparar la primera futura
+      if(firstAhead){
+        bslAlerted.add(firstAhead.key);
         bslPlaySound();
-        bslShowAlert([{ type: closest.type, data: closest.data }]);
+        bslShowAlert([{ type: firstAhead.type, data: firstAhead.data }]);
       }
     }
   });
