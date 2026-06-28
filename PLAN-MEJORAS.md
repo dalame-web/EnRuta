@@ -201,6 +201,97 @@ tanda, tras el cambio de nombre a "EnRuta").
 
 ---
 
+## 6. Estilo hora llegada en paradas intermedias (§4 refinado)
+
+**Pedido (28-06):** `t-arr` (llegada) aparece tenue y pequeña (11px, `--fg-dim`); `t-dep`
+(salida) en negrita. El dueño quiere **mismo estilo para las dos** — misma fuente, mismo
+peso, mismo color.
+
+**Fix CSS:** en `index.html` y `horario.html`, eliminar `font-size:11px` y `color:var(--fg-dim)`
+de la regla `td.time .t-arr`. **Pendiente de implementar.**
+
+---
+
+## 7. Celda "Hora real" paradas — centrado, separación y texto completo
+
+**Pedido (28-06):**
+- Las dos sub-marcas (L/S) están alineadas a la izquierda → centrar en la celda.
+- Botones demasiado juntos → más separación entre slots.
+- Etiquetas "L" y "S" → cambiar a "Llegada" y "Salida".
+
+**Fix:**
+- `td.actual.stop-cell`: `text-align:center` + `align-items:center`.
+- `.mk-slot + .mk-slot`: aumentar `margin-top` a ≥ 6–8px.
+- En `punchSlotHtml` (index.html), cambiar `label='L'` → `'Llegada'` y `'S'` → `'Salida'`.
+  Ajustar `.mk-lbl` para texto más largo (quitar `min-width:9px`, dar más espacio).
+- Mismo cambio en `horario.html` cuando se replique Fase 1.
+**Pendiente de implementar.**
+
+---
+
+## 8. Registro: retrasos/adelantos desde marcas reales del libro
+
+**Pedido (28-06):** las marcas reales GPS/manual del libro de horario (llegada + salida en
+paradas intermedias) deben alimentar el campo de retraso/adelanto en `registro.js`, en vez
+de quedar desconectadas.
+
+**Análisis:**
+- `registro.js` tiene sus propios campos `_rLleg` / `_rSal` (commit `a8d10f5`, sesión paralela).
+- El libro guarda marcas en `localStorage` key `ebula_punches_v2` con estructura
+  `punches[tickKey()][rowMarkKey(idx)]` (salida) y `punches[tickKey()][rowMarkKey(idx)+'|a']` (llegada).
+- `tickKey()` = `curGrp|march.t|march.o→march.d` — mismo valor disponible en registro.js.
+- **Mecanismo:** registro.js lee `ebula_punches_v2` desde localStorage, calcula delta contra
+  `s.h` (salida) y `s.h − (c+tc)` (llegada) y muestra resultado. No hace falta IPC — comparten
+  localStorage.
+- **Riesgo:** hay que coordinar con la sesión paralela que toca `registro.js` para no chocar.
+  No implementar sin confirmar que `a8d10f5` no usa `_rLleg`/`_rSal` de forma conflictiva.
+**Pendiente de implementar (coordinar con sesión paralela primero).**
+
+---
+
+## 9. Scroll: reducir porcentaje de 28% a ~17%
+
+**Pedido (28-06):** fila activa demasiado abajo (28%); quiere más arriba (15–20%).
+
+**Fix:** en `index.html` y `horario.html`, cambiar `main.clientHeight * 0.28`
+→ `main.clientHeight * 0.17` (≈ 17%). **Pendiente de implementar.**
+
+---
+
+## 10. Consumo de datos — reducción urgente (~2 GB en 15 días)
+
+**Análisis (28-06):**
+
+### Fuentes identificadas y propuesta de cambio
+
+| Fuente | Código | Actual | Propuesto | Razón |
+|---|---|---|---|---|
+| Trenes ADIF (pestaña horario/mapa) | `AUTO_INTERVAL_MS` | 60 s | **300 s (5 min)** | Posición trenes no cambia tan rápido |
+| Estado Red ADIF (via r.jina.ai) | `REFRESH_MS` | 120 s | **1200 s (20 min)** | Incidencias ADIF cambian poco; 20 min suficiente |
+| Estado Red en `visibilitychange` | línea 6280 | siempre al volver | **Solo si >20 min desde último fetch** | Evita descarga en cada desbloqueo de pantalla |
+| Estado Red guardia de pestaña | ninguna | se lanza siempre visible | **Solo si pestaña ADIF activa** | Igual que ADIF trenes |
+
+**Decisiones del dueño (28-06):**
+- `AUTO_INTERVAL_MS`: subir a 5 min (300 s). OK.
+- `REFRESH_MS`: subir a 15–20 min. Elegido **20 min** (1200 s).
+- `fetchLive` en `visibilitychange`: añadir guardia de tiempo mínimo.
+- `fetchLive` guardia de pestaña: solo si ADIF activo.
+
+### Tiles del mapa
+Los tiles OSM **sí se cachean** en el SW (fetch handler guarda GET). Pero cada actualización
+de versión de caché (nuevo `CACHE` key en `sw.js`) **borra toda la caché**, tiles incluidos.
+Con ~33 versiones lanzadas, los tiles se re-descargan frecuentemente. Solución: caché
+separada para tiles inmune a updates del SW. Trabajo extra — **pendiente como mejora futura**.
+
+### Tamaño de la app en sí
+Los 8 archivos del PRECACHE (`index.html` 6200 líneas, `horario.html` 5235 líneas,
+`gps-tracking.js`, `app-logger.js`, etc.) son ~500–800 KB totales. No es la causa principal.
+La causa principal son tiles + peticiones frecuentes a ADIF/jina.ai.
+
+**Estado: pendiente de implementar (no tocar código aún — esperando OK del dueño).**
+
+---
+
 ## Registro de cambios
 
 - **2026-06-27** — Investigación inicial de las 4 mejoras + función BSL (este documento).
@@ -222,3 +313,8 @@ tanda, tras el cambio de nombre a "EnRuta").
   servicio para ver si la asimetría es geometría de ruta (LINES), offset de coordenadas
   por sentido, o cadencia de sondeo. No tocar a ciegas. El acelerómetro (PLAN-ACELEROMETRO)
   también mitigaría este caso.
+- **2026-06-28** — **Análisis consumo de datos (§10):** ~2 GB en 15 días. Causas: tiles SW
+  borrados en cada update de versión + `fetchLive` cada 2 min sin guardia + `runFetch` cada
+  60 s. Plan: `AUTO_INTERVAL_MS` 60s→300s, `REFRESH_MS` 120s→1200s, guardia `visibilitychange`.
+  Sin tocar código hasta OK. Nuevas mejoras UI anotadas: §6 (estilo t-arr), §7 (centrado
+  slots marca), §8 (registro desde punches), §9 (scroll 28%→17%). Todas pendientes.
