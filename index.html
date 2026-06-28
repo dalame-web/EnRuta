@@ -5253,7 +5253,7 @@ window.addEventListener('unload', ebulaClearAllData);
       var oldIdx = curIdx;
       var proceed = function(){
         curIdx=+e.target.value;
-        bslActive=false; (document.getElementById('bsl-btn')||{}).classList.remove('bsl-on'); bslAlerted.clear();
+        bslActive=false; (document.getElementById('bsl-btn')||{}).classList.remove('bsl-on');
         renderHeader();
         if(oldKey && oldKey !== tickKey()) clearOldServiceData(oldKey);
         renderRows(); updatePosition(); savePrefs();
@@ -5486,7 +5486,7 @@ window.addEventListener('unload', ebulaClearAllData);
     if(i<0) return;
     var changed = (curIdx !== i);
     curIdx=i; $('train').value=i; renderHeader(); renderRows(); updatePosition(); savePrefs();
-    if(changed){ bslActive=false; (document.getElementById('bsl-btn')||{}).classList.remove('bsl-on'); bslAlerted.clear(); }
+    if(changed){ bslActive=false; (document.getElementById('bsl-btn')||{}).classList.remove('bsl-on'); }
     if(!noNav) switchTab('schedule');
     // G3: si cambió de tren, notificar a gps-tracking para parar el tracking del march viejo.
     if(changed && window.HTIryo._dispatchMarchaChange) window.HTIryo._dispatchMarchaChange();
@@ -6195,11 +6195,9 @@ renderRows = function(){
   }
 };
 
-// ====== BSL — Avisos Zonas Neutras y LTV ======
+// ====== BSL — Avisos Zonas Neutras y LTV (sin memoria, cálculo fresco) ======
 let bslActive = false;
 let bslAudioCtx = null;
-let bslAlerted = new Set();
-let _bslMarchRef = null;
 let _bslModalOpen = false;
 
 const ZN_ICON_SVG = '<svg class="zn-icon" viewBox="0 0 24 32" width="16" height="21" aria-hidden="true">'
@@ -6221,7 +6219,6 @@ function bslPlaySound(){
   try {
     bslUnlockAudio();
     const ctx = bslAudioCtx;
-    // Tres tonos suaves: sol-mi-sol
     const freqs = [392, 330, 392];
     let t = ctx.currentTime + 0.05;
     freqs.forEach(function(f, i){
@@ -6303,185 +6300,75 @@ function bslShowAlert(items){
   setTimeout(function(){ try{ btn.focus(); }catch(e){} }, 50);
 }
 
-function _bslPrevRealStop(stops, beforeIdx){
-  for(let i = beforeIdx - 1; i >= 0; i--){
-    if(stops[i].n && stops[i].tm != null) return i;
-  }
-  return -1;
-}
+// Sin función bslCheck continua. BSL solo actúa al pulsar el botón (cálculo fresco).
 
-function _bslAlertIdxForPK(stops, znK, ascending){
-  // Find stBefore = last real stop before znK in travel direction (in array order)
-  let stBefore = -1;
-  for(let i = 0; i < stops.length; i++){
-    const s = stops[i];
-    if(!s.n || s.tm == null || s.k == null) continue;
-    if(ascending ? (s.k < znK) : (s.k > znK)) stBefore = i;
-  }
-  if(stBefore < 0) return -1;
-  const dist = Math.abs(znK - stops[stBefore].k);
-  if(dist < 5) return _bslPrevRealStop(stops, stBefore);
-  return stBefore;
-}
-
-function bslCheck(){
-  if(!bslActive || !march || !march.s || _bslModalOpen) return;
-  if(march !== _bslMarchRef){ bslAlerted.clear(); _bslMarchRef = march; }
-
-  const stops = march.s;
-  const t = nowMin();
-
-  // Determine direction
-  let firstK = null, lastK = null;
-  for(const s of stops){
-    if(s.k == null || !s.n) continue;
-    if(firstK === null) firstK = s.k;
-    lastK = s.k;
-  }
-  const ascending = (firstK != null && lastK != null) ? (firstK <= lastK) : true;
-
-  const byAlertIdx = {};
-  function addAlert(alertIdx, item){
-    if(!byAlertIdx[alertIdx]) byAlertIdx[alertIdx] = [];
-    if(!byAlertIdx[alertIdx].some(function(x){ return x.key === item.key; }))
-      byAlertIdx[alertIdx].push(item);
-  }
-
-  // ZN rows in march.s
-  const ZN_FLAGS = ['_l010zn','_l030zn','_l040zn','_l042zn','_l050zn'];
-  for(let i = 0; i < stops.length; i++){
-    const s = stops[i];
-    if(!ZN_FLAGS.some(function(f){ return s[f]; })) continue;
-    if(s.k == null) continue;
-    const key = 'zn_'+i;
-    if(bslAlerted.has(key)) continue;
-    const aIdx = _bslAlertIdxForPK(stops, s.k, ascending);
-    if(aIdx < 0) continue;
-    addAlert(aIdx, { key: key, type: 'zn', data: { k: s.k, k_fin: s.k_fin } });
-  }
-
-  // LTVs visibles en el DOM (ya filtradas por renderRows)
-  document.querySelectorAll('#rows tr.ltv-row[data-ltv]').forEach(function(ltvTr){
-    const codigo = ltvTr.dataset.ltv;
-    const ltv = LTV_LIST.find(function(r){ return r.codigo === codigo; });
-    if(!ltv) return;
-    const key = 'ltv_'+codigo;
-    if(bslAlerted.has(key)) return;
-    const entryK = ascending ? Math.min(ltv.km_ini, ltv.km_fin) : Math.max(ltv.km_ini, ltv.km_fin);
-    if(isNaN(entryK)) return;
-    const aIdx = _bslAlertIdxForPK(stops, entryK, ascending);
-    if(aIdx < 0) return;
-    addAlert(aIdx, { key: key, type: 'ltv', data: ltv });
-  });
-
-  // Fire alerts whose time has been reached
-  Object.keys(byAlertIdx).forEach(function(idxStr){
-    const alertIdx = +idxStr;
-    const s = stops[alertIdx];
-    if(!s || s.tm == null) return;
-    const alertTime = s.tm + _bslDelayMin;
-    if(t < alertTime) return;
-    const pending = byAlertIdx[alertIdx].filter(function(it){ return !bslAlerted.has(it.key); });
-    if(pending.length === 0) return;
-    pending.forEach(function(it){ bslAlerted.add(it.key); });
-    bslPlaySound();
-    bslShowAlert(pending);
-  });
-}
-
-// Hookear bslCheck en updateLive
-const _origUpdateLive = updateLive;
-updateLive = function(){
-  _origUpdateLive();
-  bslCheck();
-};
-
-// Botón BSL
+// Botón BSL — cálculo fresco sin memoria
 (function(){
   const btn = document.getElementById('bsl-btn');
   if(!btn) return;
   btn.addEventListener('click', function(){
-    bslUnlockAudio();
     bslActive = !bslActive;
     btn.classList.toggle('bsl-on', bslActive);
     btn.title = bslActive ? 'BSL activo — pulsa para desactivar' : 'Activar avisos BSL (Zonas Neutras y LTV)';
-    if(!bslActive){
-      bslAlerted.clear();
-      _bslMarchRef = null;
-    } else {
-      // Al activar, pre-marcar alertas ya pasadas (continuar desde donde esté el libro)
-      if(!march || !march.s) return;
-      const stops = march.s;
+
+    if(bslActive){
+      // Cálculo fresco: buscar ZN/LTV en próximas 2 filas
+      if(!march || !march.s || _bslModalOpen) return;
+
       const t = nowMin();
-      // Dirección del recorrido
-      let firstK = null, lastK = null;
-      for(const s of stops){
-        if(s.k == null || !s.n) continue;
-        if(firstK === null) firstK = s.k;
-        lastK = s.k;
-      }
-      const ascending = (firstK != null && lastK != null) ? (firstK <= lastK) : true;
-      // Pre-marcar ZN/LTV que ya pasaron (basado en estación de aviso)
-      const ZN_FLAGS = ['_l010zn','_l030zn','_l040zn','_l042zn','_l050zn'];
-      for(let i = 0; i < stops.length; i++){
-        const s = stops[i];
-        if(!ZN_FLAGS.some(f => s[f])) continue;
-        if(s.k == null) continue;
-        // Para ZN, buscar su estación de aviso
-        const aIdx = _bslAlertIdxForPK(stops, s.k, ascending);
-        if(aIdx >= 0 && stops[aIdx].tm != null && stops[aIdx].tm + _bslDelayMin < t){
-          bslAlerted.add('zn_'+i);
+      const rows = document.querySelectorAll('#rows tr');
+      if(rows.length === 0) return;
+
+      // 1. Encontrar fila actual (última cuya hora pasó)
+      let currentRowIdx = -1;
+      for(let i = 0; i < rows.length; i++){
+        const row = rows[i];
+        const idx = row.dataset.idx;
+        if(idx == null) continue;
+        const s = march.s[idx];
+        if(s && s.tm && s.tm + _bslDelayMin <= t){
+          currentRowIdx = i;
         }
       }
-      // LTVs ya pasadas
-      document.querySelectorAll('#rows tr.ltv-row[data-ltv]').forEach(function(ltvTr){
-        const codigo = ltvTr.dataset.ltv;
-        const ltv = LTV_LIST.find(r => r.codigo === codigo);
-        if(!ltv) return;
-        const entryK = ascending ? Math.min(ltv.km_ini, ltv.km_fin) : Math.max(ltv.km_ini, ltv.km_fin);
-        const aIdx = _bslAlertIdxForPK(stops, entryK, ascending);
-        if(aIdx >= 0 && stops[aIdx].tm != null && stops[aIdx].tm + _bslDelayMin < t){
-          bslAlerted.add('ltv_'+codigo);
-        }
-      });
-      // Buscar posición actual: última estación cuya hora ya pasó
-      let currentPosIdx = -1;
-      for(let i = 0; i < stops.length; i++){
-        const s = stops[i];
-        if(s.tm != null && s.tm + _bslDelayMin <= t) currentPosIdx = i;
-      }
-      // Buscar la primera ZN/LTV que viene DESPUÉS de donde estoy
-      let firstAhead = null;
-      // ZN futuras (después de currentPosIdx)
-      for(let i = currentPosIdx + 1; i < stops.length; i++){
-        const s = stops[i];
-        if(!ZN_FLAGS.some(f => s[f])) continue;
-        if(!bslAlerted.has('zn_'+i)){
-          firstAhead = { type: 'zn', key: 'zn_'+i, data: { k: s.k, k_fin: s.k_fin } };
-          break;
-        }
-      }
-      // LTVs futuras (si no hay ZN futura)
-      if(!firstAhead){
-        document.querySelectorAll('#rows tr.ltv-row[data-ltv]').forEach(function(ltvTr){
-          if(firstAhead) return;
-          const codigo = ltvTr.dataset.ltv;
-          if(bslAlerted.has('ltv_'+codigo)) return;
+
+      // 2. Mirar próximas 2 filas
+      for(let i = currentRowIdx + 1; i <= currentRowIdx + 2 && i < rows.length; i++){
+        const row = rows[i];
+        const item = { type: null, data: null };
+
+        // ¿Es LTV?
+        if(row.classList.contains('ltv-row')){
+          const codigo = row.dataset.ltv;
           const ltv = LTV_LIST.find(r => r.codigo === codigo);
-          if(!ltv) return;
-          const entryK = ascending ? Math.min(ltv.km_ini, ltv.km_fin) : Math.max(ltv.km_ini, ltv.km_fin);
-          const aIdx = _bslAlertIdxForPK(stops, entryK, ascending);
-          if(aIdx > currentPosIdx){
-            firstAhead = { type: 'ltv', key: 'ltv_'+codigo, data: ltv };
+          if(ltv){
+            item.type = 'ltv';
+            item.data = ltv;
           }
-        });
+        } else {
+          // ¿Es ZN?
+          const idx = row.dataset.idx;
+          if(idx != null){
+            const s = march.s[idx];
+            if(s){
+              const ZN_FLAGS = ['_l010zn','_l030zn','_l040zn','_l042zn','_l050zn'];
+              if(ZN_FLAGS.some(f => s[f])){
+                item.type = 'zn';
+                item.data = { k: s.k, k_fin: s.k_fin };
+              }
+            }
+          }
+        }
+
+        // Si encontramos ZN/LTV, mostrar y terminar
+        if(item.type){
+          bslUnlockAudio();
+          bslPlaySound();
+          bslShowAlert([item]);
+          return;
+        }
       }
-      // Disparar la primera futura
-      if(firstAhead){
-        bslAlerted.add(firstAhead.key);
-        bslPlaySound();
-        bslShowAlert([{ type: firstAhead.type, data: firstAhead.data }]);
-      }
+
+      // No hay ZN/LTV en próximas 2 filas: no mostrar nada
     }
   });
 })();
